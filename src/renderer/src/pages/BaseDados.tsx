@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Search, Download, Plus, Pencil, Trash2, RotateCcw, AlertTriangle, FileSpreadsheet, X } from 'lucide-react'
 
 const MOCK_ATLETAS = [
   { numero_fpp: 104529, nome: 'Diana Soares Cruz', clube: 'CDMP', associacao: 'APAve', email: '', telemovel: '' },
@@ -90,7 +91,7 @@ export default function BaseDados() {
             <div className="flex justify-between items-end">
                 <div>
                     <h2 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Base de Dados</h2>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Gestão de atletas ({atletasFiltrados.length} registos)</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">({atletasFiltrados.length} registos)</p>
                 </div>
                 
                 {/* SEPARADORES: Ativos vs Reciclagem */}
@@ -113,7 +114,9 @@ export default function BaseDados() {
             <div className="flex justify-between items-center bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl border border-gray-200 dark:border-[#2A2A2A] shadow-sm">
             {/* Barra de Pesquisa */}
             <div className="relative w-96">
-                <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">🔍</span>
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <Search className="w-4 h-4 text-gray-400" />
+                </div>
                 <input 
                 type="text" 
                 placeholder="Pesquisar por nome, nº FPP ou clube..." 
@@ -129,13 +132,13 @@ export default function BaseDados() {
                 onClick={() => setIsImportModalOpen(true)}
                 className="flex items-center gap-2 bg-gray-50 dark:bg-[#252525] border border-gray-200 dark:border-[#333] hover:bg-gray-100 dark:hover:bg-[#2A2A2A] text-gray-700 dark:text-gray-200 px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
                 >
-                <span>📥</span> Importar Excel
+                    <Download className="w-4 h-4" /> Importar Excel
                 </button>
                 <button 
                 onClick={() => abrirModalAtleta('adicionar')}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md"
                 >
-                <span>➕</span> Novo Atleta
+                    <Plus className="w-4 h-4" /> Novo Atleta
                 </button>
             </div>
             </div>
@@ -185,12 +188,16 @@ export default function BaseDados() {
                         <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                             {vistaAtual === 'ativos' ? (
                                 <>
-                                    <button onClick={() => abrirModalAtleta('editar', atleta)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors" title="Editar">✏️</button>
-                                    <button onClick={() => setAtletaParaApagar(atleta)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Remover">🗑️</button>
+                                    <button onClick={() => abrirModalAtleta('editar', atleta)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors" title="Editar">
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => setAtletaParaApagar(atleta)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Remover">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </>
                             ) : (
                                 <button onClick={() => restaurarAtleta(atleta)} className="p-2 text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1 ml-auto font-medium text-sm" title="Restaurar Atleta">
-                                    <span>♻️</span> Restaurar
+                                    <RotateCcw className="w-4 h-4" /> Restaurar
                                 </button>
                             )}
                         </td>
@@ -209,7 +216,7 @@ export default function BaseDados() {
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-2xl border border-red-200 dark:border-red-900/30 w-full max-w-sm overflow-hidden text-center p-6 animate-in zoom-in-95 duration-200">
                     <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">⚠️</span>
+                        <AlertTriangle className="w-8 h-8" />
                     </div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Eliminar Atleta?</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -231,7 +238,9 @@ export default function BaseDados() {
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                             {modalAtleta.tipo === 'adicionar' ? 'Adicionar Novo Atleta' : 'Editar Atleta'}
                         </h3>
-                        <button onClick={() => setModalAtleta({ isOpen: false, tipo: 'adicionar' })} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">✕</button>
+                        <button onClick={() => setModalAtleta({ isOpen: false, tipo: 'adicionar' })} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
                     <form onSubmit={handleGuardarMock} className="p-6 space-y-5">
                         {/* Grid para FPP e Associação */}
@@ -287,18 +296,18 @@ export default function BaseDados() {
         {isImportModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-2xl border border-gray-200 dark:border-[#333] w-full max-w-md overflow-hidden text-center animate-in zoom-in-95 duration-200">
-                <div className="p-8">
-                <div className="text-6xl mb-4">📊</div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Importar Excel de Atletas</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
-                    Selecione o ficheiro Excel com as colunas (Nº FPP, Nome, Clube, Associação, Email, Telemóvel).
-                </p>
-                <button className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-md mb-3">
-                    Selecionar Ficheiro .xlsx
-                </button>
-                <button onClick={() => setIsImportModalOpen(false)} className="w-full py-3.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#252525] rounded-xl transition-colors text-sm font-medium">
-                    Cancelar
-                </button>
+                <div className="p-8 mt-2">
+                    <FileSpreadsheet className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Importar Excel de Atletas</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
+                        Selecione o ficheiro Excel com as colunas (Nº FPP, Nome, Clube, Associação, Email, Telemóvel).
+                    </p>
+                    <button className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-md mb-3">
+                        Selecionar Ficheiro .xlsx
+                    </button>
+                    <button onClick={() => setIsImportModalOpen(false)} className="w-full py-3.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#252525] rounded-xl transition-colors text-sm font-medium">
+                        Cancelar
+                    </button>
                 </div>
             </div>
             </div>
