@@ -1,23 +1,27 @@
-import { useState, useMemo } from 'react'
-import { Search, Download, Plus, Pencil, Trash2, RotateCcw, AlertTriangle, FileSpreadsheet, X } from 'lucide-react'
+import { useState, useMemo, useEffect} from 'react'
+import { Search, Download, Plus, Pencil, Trash2, RotateCcw, AlertTriangle, FileSpreadsheet, X, Loader2 } from 'lucide-react'
 
-const MOCK_ATLETAS = [
-  { numero_fpp: 104529, nome: 'Diana Soares Cruz', clube: 'CDMP', associacao: 'APAve', email: '', telemovel: '' },
-  { numero_fpp: 95470, nome: 'Noa Oliveira Vale', clube: 'CENAP', associacao: 'APAve', email: 'marina_13.11.05@hotmail.com', telemovel: '913415687' },
-  { numero_fpp: 82560, nome: 'Ana Rita Dias', clube: 'CENAP', associacao: 'APAve', email: 'anasilvadias17@gmail.com', telemovel: '928053648' },
-  { numero_fpp: 72005, nome: 'Mara Gonçalves Carvalho', clube: 'ELA', associacao: 'APAve', email: 'maragcarvalho05@gmail.com', telemovel: '919018321' },
-  { numero_fpp: 79316, nome: 'Leonor Dantas Martins', clube: 'HCMea', associacao: 'APAve', email: 'carla.dantas@uc.pt', telemovel: '930440016' },
-]
 
 export default function BaseDados() {
     // Mantemos a variável "atletas" conforme pediste
-    const [atletas, setAtletas] = useState(MOCK_ATLETAS)
+    const [atletas, setAtletas] = useState<any[]>([])
     const [atletasApagados, setAtletasApagados] = useState<any[]>([])
     const [vistaAtual, setVistaAtual] = useState<'ativos' | 'apagados'>('ativos')
 
     const [pesquisa, setPesquisa] = useState('')
 
     const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+    const [isImporting, setIsImporting] = useState(false)
+
+    const [toast, setToast] = useState<{show: boolean, tipo: 'sucesso' | 'erro', mensagem: string}>({ show: false, tipo: 'sucesso', mensagem: '' })
+
+    const mostrarNotificacao = (tipo: 'sucesso' | 'erro', mensagem: string) => {
+        setToast({ show: true, tipo, mensagem })
+        // Esconde automaticamente passado 4 segundos
+        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000)
+    }
+
+
     const [modalAtleta, setModalAtleta] = useState<{isOpen: boolean, tipo: 'adicionar' | 'editar', dados?: any}>({ isOpen: false, tipo: 'adicionar' })
     const [atletaParaApagar, setAtletaParaApagar] = useState<any | null>(null)
 
@@ -57,31 +61,67 @@ export default function BaseDados() {
         setModalAtleta({ isOpen: true, tipo, dados: dadosAtleta })
     }
 
-    const handleGuardarMock = (e: React.FormEvent) => {
+    const carregarDados = async () => {
+        try {
+            const dadosAtivos = await window.api.getAtletas()
+            const dadosApagados = await window.api.getAtletasApagados()
+            setAtletas(dadosAtivos)
+            setAtletasApagados(dadosApagados)
+        } catch (error) {
+            console.error("Erro ao carregar BD:", error)
+        }
+    }
+
+    useEffect(() => {
+        carregarDados()
+    }, [])
+
+    const handleGuardar = async (e: React.FormEvent) => {
         e.preventDefault()
+        const dadosParaEnviar = { ...formData, numero_fpp: parseInt(formData.numero_fpp) }
         if (modalAtleta.tipo === 'adicionar') {
-            setAtletas([...atletas, { ...formData, numero_fpp: parseInt(formData.numero_fpp) }])
+            await window.api.addAtleta(dadosParaEnviar)
         } else {
-            setAtletas(atletas.map(a => a.numero_fpp === modalAtleta.dados.numero_fpp ? { ...formData, numero_fpp: parseInt(formData.numero_fpp) } : a))
+            await window.api.updateAtleta(dadosParaEnviar)
         }
         setModalAtleta({ isOpen: false, tipo: 'adicionar' })
+        carregarDados()
     }
 
-    const confirmarApagar = () => {
+    const confirmarApagar = async () => {
         if (!atletaParaApagar) return
         // Remove dos ativos
-        setAtletas(prev => prev.filter(a => a.numero_fpp !== atletaParaApagar.numero_fpp))
-        // Adiciona aos apagados (simulando a data de hoje)
-        setAtletasApagados(prev => [...prev, { ...atletaParaApagar, data_apagado: new Date().toLocaleDateString('pt-PT') }])
+        await window.api.softDeleteAtleta(atletaParaApagar.numero_fpp)
+        // Adiciona aos apagados
         setAtletaParaApagar(null)
+        carregarDados()
     }
 
-    const restaurarAtleta = (atleta: any) => {
-        setAtletasApagados(prev => prev.filter(a => a.numero_fpp !== atleta.numero_fpp))
-        // Limpa a data de apagado antes de voltar aos ativos
-        const { data_apagado, ...atletaRestaurado } = atleta 
-        setAtletas(prev => [...prev, atletaRestaurado])
+    const restaurarAtleta = async (atleta: any) => {
+        await window.api.restoreAtleta(atleta.numero_fpp)
+        carregarDados()
     }
+
+    const handleImportarExcel = async () => {
+        setIsImporting(true)
+        try {
+            const resposta = await (window as any).api.importarExcel()
+            
+            if (resposta.success) {
+                mostrarNotificacao('sucesso', `Importação concluída! ${resposta.importados} atletas guardados.`)
+                setIsImportModalOpen(false)
+                carregarDados()
+            } else if (resposta.message !== 'Cancelado') {
+                mostrarNotificacao('erro', `Erro interno: ${resposta.message}`)
+            }
+        } catch (error: any) {
+            console.error("Erro fatal na ponte IPC:", error)
+            mostrarNotificacao('erro', "Erro de ligação! O canal 'importar-excel' não foi encontrado.")
+        } finally {
+            setIsImporting(false) 
+        }
+    }
+
 
     return (
     <div className="flex flex-col h-[calc(100vh-5rem)] p-8 max-w-[90rem] mx-auto w-full gap-6">
@@ -242,7 +282,7 @@ export default function BaseDados() {
                             <X className="w-5 h-5" />
                         </button>
                     </div>
-                    <form onSubmit={handleGuardarMock} className="p-6 space-y-5">
+                    <form onSubmit={handleGuardar} className="p-6 space-y-5">
                         {/* Grid para FPP e Associação */}
                         <div className="grid grid-cols-2 gap-5">
                             <div>
@@ -302,8 +342,13 @@ export default function BaseDados() {
                     <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
                         Selecione o ficheiro Excel com as colunas (Nº FPP, Nome, Clube, Associação, Email, Telemóvel).
                     </p>
-                    <button className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-md mb-3">
-                        Selecionar Ficheiro .xlsx
+                    <button 
+                        onClick={handleImportarExcel}
+                        disabled={isImporting}
+                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/70 text-white rounded-xl font-medium transition-colors shadow-md mb-3 flex items-center justify-center gap-2"
+                    >
+                        {isImporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        {isImporting ? 'A ler e a guardar dados...' : 'Selecionar Ficheiro .xlsx'}
                     </button>
                     <button onClick={() => setIsImportModalOpen(false)} className="w-full py-3.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#252525] rounded-xl transition-colors text-sm font-medium">
                         Cancelar
@@ -313,6 +358,19 @@ export default function BaseDados() {
             </div>
         )}
 
+    {toast.show && (
+            <div className={`fixed bottom-8 right-8 z-[100] flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border animate-in slide-in-from-bottom-5 fade-in duration-300 ${
+                toast.tipo === 'sucesso' 
+                ? 'bg-green-50 border-green-200 text-green-800 dark:bg-[#1A2E1F] dark:border-green-900/50 dark:text-green-400' 
+                : 'bg-red-50 border-red-200 text-red-800 dark:bg-[#311C1C] dark:border-red-900/50 dark:text-red-400'
+            }`}>
+                <span className="text-xl">{toast.tipo === 'sucesso' ? '✅' : '⚠️'}</span>
+                <p className="text-sm font-medium">{toast.mensagem}</p>
+                <button onClick={() => setToast(prev => ({...prev, show: false}))} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+    )}
     </div>
   )
 }

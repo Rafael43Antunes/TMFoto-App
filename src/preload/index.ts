@@ -4,12 +4,16 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   getAtletas: () => ipcRenderer.invoke('get-atletas'),
-  addAtletas: (dados) => ipcRenderer.invoke('add-atletas', dados)
+  getAtletasApagados: () => ipcRenderer.invoke('get-atletas-apagados'),
+  addAtleta: (atleta) => ipcRenderer.invoke('add-atleta', atleta),
+  updateAtleta: (atleta) => ipcRenderer.invoke('update-atleta', atleta),
+  softDeleteAtleta: (numero_fpp) => ipcRenderer.invoke('soft-delete-atleta', numero_fpp),
+  restoreAtleta: (numero_fpp) => ipcRenderer.invoke('restore-atleta', numero_fpp),
+
+  importarExcel: () => ipcRenderer.invoke('importar-excel'),
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

@@ -1,56 +1,53 @@
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3'
+import Store from 'electron-store'
 import { app } from 'electron';
 import path from 'path';
 
-// Define o caminho para o ficheiro da BD (no Windows fica em AppData/Roaming/tmfoto)
-const dbPath = path.join(app.getPath('userData'), 'tmfoto.db');
-const db = new Database(dbPath, { verbose: console.log });
+const StoreClass = (Store as any).default || Store
+const store = new StoreClass()
 
-export function initDB() {
-  const createTables = `
-    CREATE TABLE IF NOT EXISTS associacoes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT UNIQUE NOT NULL
-    );
+let db: sqlite3.Database | null = null
 
-    CREATE TABLE IF NOT EXISTS clubes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
-      associacao_id INTEGER,
-      FOREIGN KEY (associacao_id) REFERENCES associacoes (id)
-    );
+export function iniciarBaseDados() {
+    // 1. Pergunta à memória onde está a base de dados
+    let dbPath = store.get('caminho_base_dados') as string
+    
+    // 2. Se for a primeira vez que abrimos a app, cria o ficheiro na pasta segura do sistema (AppData)
+    if (!dbPath) {
+        dbPath = path.join(app.getPath('userData'), 'tmfoto.db')
+        store.set('caminho_base_dados', dbPath)
+    }
 
-    CREATE TABLE IF NOT EXISTS atletas (
-      numero_fpp INTEGER PRIMARY KEY,
-      nome TEXT NOT NULL,
-      clube_id INTEGER,
-      email TEXT,
-      telemovel TEXT,
-      FOREIGN KEY (clube_id) REFERENCES clubes (id)
-    );
+    // 3. Liga o motor SQLite a esse ficheiro
+    db = new sqlite3.Database(dbPath, (err) => {
+        if (err) {
+            console.error('Erro ao abrir base de dados:', err.message)
+        } else {
+            console.log('✅ Base de dados ligada com sucesso em:', dbPath)
+            
+            // 4. Cria a tabela relacional com o Soft Delete (data_apagado)
+            const query = `
+                CREATE TABLE IF NOT EXISTS atletas (
+                    numero_fpp INTEGER PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    clube TEXT NOT NULL,
+                    associacao TEXT NOT NULL,
+                    email TEXT,
+                    telemovel TEXT,
+                    data_apagado TEXT
+                )
+            `
+            db?.run(query, (err) => {
+                if (err) console.error('Erro ao criar tabela de atletas:', err.message)
+                else console.log('✅ Tabela de atletas verificada/criada.')
+            })
+        }
+    })
 
-    CREATE TABLE IF NOT EXISTS torneios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
-      data TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS pedidos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      torneio_id INTEGER,
-      numero_fpp INTEGER,
-      escalao TEXT,
-      tipo TEXT NOT NULL,
-      valor REAL,
-      enviar_email BOOLEAN,
-      estado TEXT DEFAULT 'Pendente',
-      FOREIGN KEY (torneio_id) REFERENCES torneios (id),
-      FOREIGN KEY (numero_fpp) REFERENCES atletas (numero_fpp)
-    );
-  `;
-
-  db.exec(createTables);
-  console.log('Base de dados inicializada em:', dbPath);
+    return db
 }
 
-export default db;
+// Função para obter o caminho atual (útil para mostrarmos nas configurações mais tarde)
+export function getCaminhoBD() {
+    return store.get('caminho_base_dados') as string
+}
