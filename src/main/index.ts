@@ -2,7 +2,9 @@ import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { iniciarBaseDados } from './database';
+import { iniciarBaseDados, getCaminhoBD } from './database'
+import fs from 'fs'
+import path from 'path'
 
 import * as xlsx from 'xlsx'
 
@@ -171,6 +173,47 @@ app.whenReady().then(() => {
     } catch (error: any) {
       return { success: false, message: error.message }
     }
+  })
+
+  ipcMain.handle('get-fotos-slideshow', async () => {
+    try {
+      const caminhoBD = getCaminhoBD()
+      const pastaSlideshow = path.join(path.dirname(caminhoBD), 'slideshow')
+
+      if (!fs.existsSync(pastaSlideshow)) {
+        fs.mkdirSync(pastaSlideshow, { recursive: true })
+      }
+
+      const ficheiros = fs.readdirSync(pastaSlideshow)
+      const extensoesValidas = ['.jpg', '.jpeg', '.png', '.webp']
+      
+      const fotos = ficheiros
+        .filter(f => extensoesValidas.includes(path.extname(f).toLowerCase()))
+        .slice(0, 50)
+        .map(foto => {
+          const caminhoFicheiro = path.join(pastaSlideshow, foto)
+          const base64Data = fs.readFileSync(caminhoFicheiro).toString('base64')
+          const ext = path.extname(foto).toLowerCase().replace('.', '')
+          const mimeType = ext === 'jpg' ? 'jpeg' : ext
+          return `data:image/${mimeType};base64,${base64Data}`
+        })
+
+      return fotos
+    } catch (err) {
+      console.error('Erro ao ler pasta das fotos:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('abrir-pasta-slideshow', async () => {
+    const caminhoBD = getCaminhoBD()
+    const pastaSlideshow = path.join(path.dirname(caminhoBD), 'slideshow')
+    
+    if (!fs.existsSync(pastaSlideshow)) {
+      fs.mkdirSync(pastaSlideshow, { recursive: true })
+    }
+    
+    shell.openPath(pastaSlideshow)
   })
 
   createWindow()

@@ -11,6 +11,9 @@ const api = {
   restoreAtleta: (numero_fpp) => ipcRenderer.invoke('restore-atleta', numero_fpp),
 
   importarExcel: () => ipcRenderer.invoke('importar-excel'),
+
+  getFotosSlideshow: () => ipcRenderer.invoke('get-fotos-slideshow'),
+  abrirPastaSlideshow: () => ipcRenderer.invoke('abrir-pasta-slideshow'),
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

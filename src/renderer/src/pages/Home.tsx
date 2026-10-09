@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { FolderOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function Home() {
   const [saudacao, setSaudacao] = useState('Olá')
@@ -10,6 +11,59 @@ export default function Home() {
     else if (hora >= 13 && hora < 20) setSaudacao('Boa tarde!')
     else setSaudacao('Boa noite, ainda aqui? 😯')
   }, [])
+
+  const [fotos, setFotos] = useState<string[]>([])
+  const [indiceAtual, setIndiceAtual] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const carregarFotos = async () => {
+    try {
+      const listaFotos = await (window as any).api.getFotosSlideshow()
+      setFotos(listaFotos)
+      setIndiceAtual(0)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const proximaFoto = () => {
+    if (fotos.length <= 1) return
+    setIndiceAtual((prev) => (prev + 1) % fotos.length)
+  }
+
+  const fotoAnterior = () => {
+    if (fotos.length <= 1) return
+    setIndiceAtual((prev) => (prev - 1 + fotos.length) % fotos.length)
+  }
+
+  const reiniciarTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      proximaFoto()
+    }, 3000)
+  }
+
+  useEffect(() => {
+    carregarFotos()
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (fotos.length > 1) {
+      reiniciarTimer()
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [fotos, indiceAtual])
+
+  const gerirPasta = async () => {
+    await (window as any).api.abrirPastaSlideshow()
+    // Atualiza as fotos uns segundos depois, caso o utilizador tenha fechado a pasta
+    setTimeout(carregarFotos, 2000) 
+  }
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row p-8 lg:p-14 gap-12 items-center justify-center max-w-7xl mx-auto w-full relative">
@@ -24,22 +78,80 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-xl">
           <MenuButton to="/pastas" title="Gerar Pastas" desc="A partir do PDF da ordem de saída" icon="📁" />
           <MenuButton to="/basedados" title="Base de Dados" desc="Gerir atletas, clubes e associações" icon="🗄️" />
-          <MenuButton to="/torneios" title="Torneios" desc="Pedidos e folhas de obra" icon="🏆" />
+          <MenuButton to="/torneios" title="Torneios" desc="Pedidos e folhas de Torneio" icon="🏆" />
           <MenuButton to="/envios" title="Envios" desc="Estado das transferências" icon="🚀" />
         </div>
       </div>
 
       {/*DIREITA */}
       <div className="flex-1 w-full max-w-md hidden md:flex flex-col items-center justify-center z-10">
-        <div className="w-full aspect-[4/5] bg-white dark:bg-[#1E1E1E] rounded-[2rem] border border-gray-200 dark:border-[#2A2A2A] shadow-xl overflow-hidden relative flex flex-col items-center justify-center group transition-transform duration-500 hover:-translate-y-2">
+        <div className="w-full h-[550px] bg-white dark:bg-[#1E1E1E] rounded-[2rem] border border-gray-200 dark:border-[#2A2A2A] shadow-xl p-4 flex flex-col justify-between gap-4 group transition-transform duration-500 hover:-translate-y-2">
           
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-50 to-transparent dark:from-[#252525] dark:to-transparent opacity-50"></div>
-          <div className="relative w-32 h-32 rounded-full bg-gray-50 dark:bg-[#252525] shadow-inner border border-gray-100 dark:border-[#333] flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-            <span className="text-7xl drop-shadow-lg">🛼</span>
+          
+          {/* TOPO */}
+          <div className="w-full flex justify-between items-center shrink-0">
+            <span className="text-xs text-gray-400 font-semibold tracking-wider uppercase">
+              {fotos.length > 0 ? `Foto ${indiceAtual + 1} / ${fotos.length}` : 'Sem fotos'}
+            </span>
+            <button 
+              onClick={gerirPasta}
+              className="shrink-0 text-xs bg-gray-100 dark:bg-[#252528] hover:bg-gray-200 dark:hover:bg-[#303035] text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-gray-200 dark:border-[#333]"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>Gerir Pasta</span>
+            </button>
           </div>
-          <p className="absolute bottom-10 z-10 text-gray-400 dark:text-gray-500 font-bold tracking-[0.2em] uppercase text-xs">
-            TMFoto System
-          </p>
+
+          {/* MEIO (imagem) */}
+          <div className="flex-1 w-full min-h-0 rounded-2xl overflow-hidden relative border border-gray-100 dark:border-[#2A2A2A] bg-gray-50 dark:bg-black/20 flex items-center justify-center">
+            {fotos.length > 0 ? (
+              <img 
+                key={indiceAtual}
+                src={fotos[indiceAtual]} 
+                alt="Slideshow" 
+                className="w-full h-full object-contain p-1 animate-fade-in select-none pointer-events-none drop-shadow-lg"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 text-center">
+                <div className="relative w-32 h-32 rounded-full bg-gray-50 dark:bg-[#252525] shadow-inner border border-gray-100 dark:border-[#333] flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                  <span className="text-7xl drop-shadow-lg">🛼</span>
+                </div>
+                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Sem fotos na pasta</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 max-w-[220px] mt-1">Clique em "Gerir Pasta" para adicionar até 50 imagens.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Base */}
+          <div className="w-full shrink-0 flex flex-col items-center gap-3">
+            <div className="w-full flex items-center justify-between gap-2">
+              <button 
+                onClick={() => { fotoAnterior(); reiniciarTimer(); }}
+                disabled={fotos.length <= 1}
+                className="shrink-0 px-3 py-2 bg-gray-100 dark:bg-[#222] hover:bg-gray-200 dark:hover:bg-[#2A2A2A] disabled:opacity-30 disabled:pointer-events-none text-gray-800 dark:text-white rounded-xl transition-all text-xs font-semibold flex items-center gap-1 border border-gray-200 dark:border-[#333]"
+              >
+                <ChevronLeft className="w-4 h-4" /> Anterior
+              </button>
+              
+              <div className="flex gap-1.5 max-w-[100px] overflow-hidden flex-1">
+                {fotos.slice(0, 10).map((_, i) => (
+                  <span 
+                    key={i} 
+                    className={`h-1.5 rounded-full transition-all duration-300 ${i === indiceAtual ? 'w-4 bg-blue-500' : 'w-1.5 bg-gray-300 dark:bg-white/20'}`}
+                  />
+                ))}
+              </div>
+
+              <button 
+                onClick={() => { proximaFoto(); reiniciarTimer(); }}
+                disabled={fotos.length <= 1}
+                className="shrink-0 px-3 py-2 bg-gray-100 dark:bg-[#222] hover:bg-gray-200 dark:hover:bg-[#2A2A2A] disabled:opacity-30 disabled:pointer-events-none text-gray-800 dark:text-white rounded-xl transition-all text-xs font-semibold flex items-center gap-1 border border-gray-200 dark:border-[#333]"
+              >
+                Seguinte <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            
+          </div>
         </div>
       </div>
     </div>
