@@ -6,6 +6,8 @@ import { iniciarBaseDados, getCaminhoBD } from './database'
 import fs from 'fs'
 import path from 'path'
 
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
 import * as xlsx from 'xlsx'
 
 function createWindow(): void {
@@ -214,6 +216,112 @@ app.whenReady().then(() => {
     }
     
     shell.openPath(pastaSlideshow)
+  })
+
+  //PDF =================================================
+  ipcMain.handle('escolher-pdf', async (event) => {
+    const janelaAtiva = BrowserWindow.fromWebContents(event.sender)
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(janelaAtiva!, {
+      title: 'Selecionar Ordem de Saída',
+      properties: ['openFile'],
+      filters: [{ name: 'Ficheiros PDF', extensions: ['pdf'] }]
+    })
+
+    if (canceled || filePaths.length === 0) return null
+    return filePaths[0]
+  })
+
+  ipcMain.handle('processar-pdf', async (event, caminhoPdf) => {
+    try {
+      /*const chave = (import.meta.env as any).VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  
+      const resposta = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${chave}`);
+      const dados = await resposta.json();
+      console.log("OS MEUS MODELOS SÃO:", dados.models ? dados.models.map((m: any) => m.name) : dados);*/
+
+      // 1. Lê o ficheiro a partir do caminho que o React enviou
+      const pdfBuffer = fs.readFileSync(caminhoPdf)
+      
+      const pdfPart = {
+        inlineData: {
+          data: pdfBuffer.toString('base64'),
+          mimeType: 'application/pdf'
+        }
+      }
+
+      // 2. Inicializa a IA
+      const genAI = new GoogleGenerativeAI((import.meta.env as any).VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
+      
+      // Mudámos para o modelo PRO, que é mais robusto e não dá o erro 404
+      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+
+      const prompt = `
+        És um sistema de extração de dados desportivos. Vais receber um documento PDF de uma ordem de saída de Patinagem Artística.
+        O teu objetivo é analisar as tabelas, encontrar todos os atletas e agrupá-los pelo seu escalão (ex: "Iniciação", "Cadete", "Smiles", "Infantil", etc.).
+        
+        Devolve APENAS um objeto JSON válido com a seguinte estrutura (sem qualquer texto adicional, sem formatação markdown e sem \`\`\`json):
+        {
+          "Nome do Escalão": [
+            { "ordem": 1, "fpp": 123456, "nome": "Nome do Atleta", "clube": "Sigla" }
+          ]
+        }
+      `
+
+      // 3. Pede a extração à IA
+      const result = await model.generateContent([prompt, pdfPart])
+      let respostaIA = result.response.text()
+
+      respostaIA = respostaIA.replace(/```json/g, '').replace(/```/g, '').trim()
+
+      return JSON.parse(respostaIA)
+
+    } catch (err) {
+      console.error('Erro na extração com IA:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('gerar-pastas-disco', async (event, escaloes) => {
+    try {
+      // 1. Pede ao utilizador para escolher a pasta raiz do Torneio (no disco externo)
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: 'Escolher pasta de destino para as fotos do Torneio',
+        properties: ['openDirectory']
+      })
+
+      if (canceled || filePaths.length === 0) return { sucesso: false, cancelado: true }
+
+      const pastaDestino = filePaths[0]
+
+      // 2. Percorre os dados e cria as pastas fisicamente
+      for (const escalao of escaloes) {
+        // Limpa caracteres que o Windows não permite em pastas (ex: / \ : * ? " < > |)
+        const nomeEscalaoLimpo = escalao.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+
+        for (const atleta of escalao.atletas) {
+          const nomeAtletaLimpo = atleta.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+          
+          // Estrutura: PastaEscolhida / Dia / Escalão / 123456_Nome
+          const caminhoAtleta = path.join(
+            pastaDestino, 
+            escalao.dia, 
+            nomeEscalaoLimpo, 
+            `${atleta.fpp}_${nomeAtletaLimpo}`
+          )
+          
+          // Cria a pasta se não existir (o recursive: true cria os "Dias" e "Escalões" automaticamente)
+          if (!fs.existsSync(caminhoAtleta)) {
+            fs.mkdirSync(caminhoAtleta, { recursive: true })
+          }
+        }
+      }
+
+      return { sucesso: true, caminho: pastaDestino }
+    } catch (err) {
+      console.error('Erro ao gerar pastas:', err)
+      return { sucesso: false, erro: err }
+    }
   })
 
   createWindow()

@@ -14,6 +14,10 @@ const api = {
 
   getFotosSlideshow: () => ipcRenderer.invoke('get-fotos-slideshow'),
   abrirPastaSlideshow: () => ipcRenderer.invoke('abrir-pasta-slideshow'),
+
+  escolherPdf: () => ipcRenderer.invoke('escolher-pdf'),
+  processarPdf: (caminho) => ipcRenderer.invoke('processar-pdf', caminho),
+  gerarPastasDisco: (dados) => ipcRenderer.invoke('gerar-pastas-disco', dados),
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:
