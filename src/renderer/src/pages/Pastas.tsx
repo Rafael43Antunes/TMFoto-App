@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, FolderPlus, Calendar, Users, Upload, Wifi, Loader2 } from 'lucide-react'
+import { FileText, FolderPlus, Calendar, Users, Upload, Wifi, Loader2, ChevronDown, ChevronUp} from 'lucide-react'
 
 // Interface para estruturar os dados que vêm do backend
 interface EscalaoProcessado {
@@ -12,6 +12,7 @@ export default function GerarPastas() {
   const [escaloes, setEscaloes] = useState<EscalaoProcessado[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [loadingText, setLoadingText] = useState('')
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
   const mensagensProcessamento = [
     "A preparar o documento PDF...",
@@ -37,22 +38,17 @@ export default function GerarPastas() {
     const interval = setInterval(() => {
       step = Math.min(step + 1, mensagensProcessamento.length - 1)
       setLoadingText(mensagensProcessamento[step])
-    }, 1500)
+    }, 3000)
 
     try {
       // 3. Mandamos o caminho do ficheiro para a IA mastigar
       const dados = await (window as any).api.processarPdf(caminho)
       clearInterval(interval)
       
-      if (dados) {
-        const listaFormatada = Object.keys(dados).map((key) => ({
-          nome: key,
-          dia: 'Dia 1',
-          atletas: dados[key]
-        }))
-        
-        setEscaloes(listaFormatada)
+      if (dados && Array.isArray(dados)) {
+        setEscaloes(dados)
       }
+      
     } catch (error) {
       clearInterval(interval)
       console.error("Erro a importar PDF:", error)
@@ -176,31 +172,58 @@ export default function GerarPastas() {
 
           <div className="bg-white dark:bg-[#1A1A1D] border border-gray-100 dark:border-[#2A2A2A] rounded-2xl flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 dark:border-[#2A2A2A] bg-gray-50/50 dark:bg-black/20 flex justify-between items-center shrink-0">
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300">Organização das Pastas</h3>
-              <span className="text-xs text-gray-500">Revê e ajusta os dias antes de gerar</span>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300">Pré-visualização das Pastas</h3>
+              <span className="text-xs text-gray-500">Clica num escalão para ver a ordem dos atletas</span>
             </div>
             
             <div className="divide-y divide-gray-100 dark:divide-[#2A2A2A] overflow-y-auto custom-scrollbar flex-1">
               {escaloes.map((escalao, idx) => (
-                <div key={idx} className="p-4 px-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{escalao.nome}</span>
-                    <span className="text-xs text-gray-500">{escalao.atletas.length} atletas extraídos</span>
+                <div key={idx} className="flex flex-col">
+                  {/* CABEÇALHO DO ESCALÃO */}
+                  <div 
+                    onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                    className="p-4 px-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-gray-400">
+                        {expandedIdx === idx ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                          <span className="text-blue-500 mr-2">{String(idx + 1).padStart(2, '0')}</span> 
+                          {escalao.nome}
+                        </span>
+                        <span className="text-xs text-gray-500">{escalao.atletas.length} atletas extraídos</span>
+                      </div>
+                    </div>
+                    
+                    {/* INPUT DO DIA (Texto livre para permitir edições) */}
+                    <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={escalao.dia}
+                        onChange={(e) => mudarDia(idx, e.target.value)}
+                        className="bg-gray-50 dark:bg-[#151518] border border-gray-200 dark:border-[#333] text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 px-3 outline-none w-32"
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <select
-                      value={escalao.dia}
-                      onChange={(e) => mudarDia(idx, e.target.value)}
-                      className="bg-gray-50 dark:bg-[#151518] border border-gray-200 dark:border-[#333] text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 px-3 text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
-                    >
-                      <option value="Dia 1">Dia 1</option>
-                      <option value="Dia 2">Dia 2</option>
-                      <option value="Dia 3">Dia 3</option>
-                      <option value="Dia 4">Dia 4</option>
-                    </select>
-                  </div>
+
+                  {/* LISTA DE PASTAS DOS ATLETAS (ACORDEÃO) */}
+                  {expandedIdx === idx && (
+                    <div className="bg-gray-50/80 dark:bg-[#111113] p-4 px-12 border-t border-gray-100 dark:border-[#2A2A2A]">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {/* Garante a visualização ordenada na UI */}
+                        {[...escalao.atletas].sort((a,b) => a.ordem - b.ordem).map((atl, atlIdx) => (
+                          <div key={atlIdx} className="text-sm bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] p-2 px-3 rounded-lg flex items-center gap-2 truncate">
+                            <FolderPlus className="w-4 h-4 text-gray-400 shrink-0" />
+                            <span className="font-semibold text-gray-400">{String(atlIdx + 1).padStart(2, '0')}</span>
+                            <span className="truncate" title={atl.nome}>{atl.nome}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -257,15 +257,19 @@ app.whenReady().then(() => {
       const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
 
       const prompt = `
-        És um sistema de extração de dados desportivos. Vais receber um documento PDF de uma ordem de saída de Patinagem Artística.
-        O teu objetivo é analisar as tabelas, encontrar todos os atletas e agrupá-los pelo seu escalão (ex: "Iniciação", "Cadete", "Smiles", "Infantil", etc.).
+        És um especialista em extração de dados desportivos. Vais ler um PDF com a ordem de saída de um torneio de Patinagem Artística.
+        Agrupa os atletas pelo seu escalão. Descobre também o dia da prova para cada escalão (ex: "Dia 1", "Dia 2", "Sábado", "Domingo"). Se não encontrares, usa "Dia 1".
         
-        Devolve APENAS um objeto JSON válido com a seguinte estrutura (sem qualquer texto adicional, sem formatação markdown e sem \`\`\`json):
-        {
-          "Nome do Escalão": [
-            { "ordem": 1, "fpp": 123456, "nome": "Nome do Atleta", "clube": "Sigla" }
-          ]
-        }
+        Devolve APENAS um array JSON exato com esta estrutura (sem markdown, sem \`\`\`json):
+        [
+          {
+            "nome": "Nome do Escalão",
+            "dia": "Dia 1",
+            "atletas": [
+              { "ordem": 1, "nome": "Nome do Atleta", "clube": "Sigla" }
+            ]
+          }
+        ]
       `
 
       // 3. Pede a extração à IA
@@ -294,28 +298,27 @@ app.whenReady().then(() => {
 
       const pastaDestino = filePaths[0]
 
-      // 2. Percorre os dados e cria as pastas fisicamente
-      for (const escalao of escaloes) {
-        // Limpa caracteres que o Windows não permite em pastas (ex: / \ : * ? " < > |)
-        const nomeEscalaoLimpo = escalao.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+      escaloes.forEach((escalao: any, indexEsc: number) => {
+        const numEsc = String(indexEsc + 1).padStart(2, '0') // Ex: "01", "02"
+        const nomeEscLimpo = escalao.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+        const pastaEscalao = `${numEsc} ${nomeEscLimpo}` // "01 Iniciação"
 
-        for (const atleta of escalao.atletas) {
-          const nomeAtletaLimpo = atleta.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+        // Ordena os atletas pela ordem de saída para garantir a sequência
+        const atletasOrdenados = [...escalao.atletas].sort((a, b) => a.ordem - b.ordem)
+
+        atletasOrdenados.forEach((atleta, indexAtl) => {
+          const numAtl = String(indexAtl + 1).padStart(2, '0') // Ex: "01", "02"
+          const nomeAtlLimpo = atleta.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
+          const pastaAtleta = `${numAtl} ${nomeAtlLimpo}` // "01 Nome do Atleta"
+
+          // Estrutura Final: Destino / Dia / 01 Escalão / 01 Nome Atleta
+          const caminho = path.join(pastaDestino, escalao.dia, pastaEscalao, pastaAtleta)
           
-          // Estrutura: PastaEscolhida / Dia / Escalão / 123456_Nome
-          const caminhoAtleta = path.join(
-            pastaDestino, 
-            escalao.dia, 
-            nomeEscalaoLimpo, 
-            `${atleta.fpp}_${nomeAtletaLimpo}`
-          )
-          
-          // Cria a pasta se não existir (o recursive: true cria os "Dias" e "Escalões" automaticamente)
-          if (!fs.existsSync(caminhoAtleta)) {
-            fs.mkdirSync(caminhoAtleta, { recursive: true })
+          if (!fs.existsSync(caminho)) {
+            fs.mkdirSync(caminho, { recursive: true })
           }
-        }
-      }
+        })
+      })
 
       return { sucesso: true, caminho: pastaDestino }
     } catch (err) {
