@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, FolderPlus, Calendar, Users, Upload, Wifi, Loader2, ChevronDown, ChevronUp} from 'lucide-react'
+import { FileText, FolderPlus, Calendar, Users, Upload, Wifi, Loader2, ChevronDown, ChevronUp, CheckCircle, XCircle} from 'lucide-react'
 
 // Interface para estruturar os dados que vêm do backend
 interface EscalaoProcessado {
@@ -10,9 +10,14 @@ interface EscalaoProcessado {
 
 export default function GerarPastas() {
   const [escaloes, setEscaloes] = useState<EscalaoProcessado[]>([])
+
   const [isProcessing, setIsProcessing] = useState(false)
   const [loadingText, setLoadingText] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [genStatus, setGenStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [genPath, setGenPath] = useState('')
 
   const mensagensProcessamento = [
     "A preparar o documento PDF...",
@@ -67,19 +72,32 @@ export default function GerarPastas() {
   }
 
   const gerarPastasNoDisco = async () => {
-    setIsProcessing(true)
+    setIsGenerating(true)
+    setGenStatus('loading')
     try {
       const resultado = await (window as any).api.gerarPastasDisco(escaloes)
+
+      if (resultado.cancelado) {
+        setIsGenerating(false)
+        return
+      }
       
       if (resultado.sucesso) {
-        alert(`Sucesso! Pastas criadas em:\n${resultado.caminho}`)
-        setEscaloes([]) 
+        setGenStatus('success')
+        setGenPath(resultado.caminho) 
+      }else{
+        setGenStatus('error')
       }
     } catch (error) {
       console.error("Erro ao gravar no disco:", error)
-      alert("Ocorreu um erro ao tentar criar as pastas.")
-    } finally {
-      setIsProcessing(false)
+      setGenStatus('error')
+    }
+  }
+
+  const fecharModalGeracao = () => {
+    setIsGenerating(false)
+    if (genStatus === 'success') {
+      setEscaloes([]) // Limpa a lista de atletas se tudo correu bem, pronto para o próximo PDF
     }
   }
 
@@ -241,6 +259,65 @@ export default function GerarPastas() {
             </button>
           </div>
 
+        </div>
+      )}
+
+      {isGenerating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-3xl w-full max-w-md p-8 flex flex-col items-center text-center shadow-2xl">
+            
+            {genStatus === 'loading' && (
+              <div className="flex flex-col items-center animate-fade-in">
+                <div className="p-4 bg-blue-50 dark:bg-blue-500/10 rounded-full mb-6">
+                  <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">A preparar estrutura...</h3>
+                <p className="text-sm text-gray-500">
+                  Escolhe a pasta destino na janela do Windows e aguarda enquanto o sistema cria as {totalAtletas} pastas.
+                </p>
+              </div>
+            )}
+
+            {genStatus === 'success' && (
+              <div className="flex flex-col items-center animate-fade-in w-full">
+                <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-6">
+                  <CheckCircle className="w-10 h-10" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Sucesso!</h3>
+                <p className="text-sm text-gray-500 mb-6 w-full">
+                  As pastas da competição foram geradas e organizadas corretamente em:
+                  <span className="font-mono text-xs mt-3 block bg-gray-50 dark:bg-[#1A1A1D] p-3 rounded-xl border border-gray-100 dark:border-[#333] break-all text-left text-gray-700 dark:text-gray-300">
+                    {genPath}
+                  </span>
+                </p>
+                <button 
+                  onClick={fecharModalGeracao} 
+                  className="bg-gray-900 dark:bg-white text-white dark:text-black px-6 py-3 rounded-xl font-bold hover:scale-105 transition-transform w-full"
+                >
+                  Concluir
+                </button>
+              </div>
+            )}
+
+            {genStatus === 'error' && (
+              <div className="flex flex-col items-center animate-fade-in w-full">
+                <div className="w-20 h-20 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-6">
+                  <XCircle className="w-10 h-10" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Ocorreu um erro</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Não foi possível concluir a gravação das pastas no disco. Verifica as permissões da pasta destino.
+                </p>
+                <button 
+                  onClick={fecharModalGeracao} 
+                  className="bg-gray-200 dark:bg-[#2A2A2A] text-gray-800 dark:text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-300 dark:hover:bg-[#333] transition-colors w-full"
+                >
+                  Tentar Novamente
+                </button>
+              </div>
+            )}
+            
+          </div>
         </div>
       )}
     </div>

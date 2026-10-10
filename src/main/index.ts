@@ -254,7 +254,12 @@ app.whenReady().then(() => {
       const genAI = new GoogleGenerativeAI((import.meta.env as any).VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
       
       // Mudámos para o modelo PRO, que é mais robusto e não dá o erro 404
-      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' })
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-flash-latest', 
+        generationConfig: { 
+          responseMimeType: 'application/json' 
+        }
+      })
 
       const prompt = `
         És um especialista em extração de dados desportivos. Vais ler um PDF com a ordem de saída de um torneio de Patinagem Artística.
