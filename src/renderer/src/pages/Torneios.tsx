@@ -175,7 +175,7 @@ export default function GestaoPedidos() {
                                         <button 
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                abrirEdicao(torneio);
+                                                setTorneioParaEditar(torneio);
                                                 }} 
                                             className="p-2 bg-gray-100 dark:bg-[#2A2A2D] hover:bg-blue-600 dark:hover:bg-blue-600 rounded-lg text-gray-500 dark:text-gray-400 hover:text-white transition-colors"
                                             title="Editar Torneio"

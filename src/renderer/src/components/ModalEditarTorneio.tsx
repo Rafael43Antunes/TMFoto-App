@@ -15,8 +15,8 @@ export function ModalEditarTorneio({ isOpen, onClose, onSuccess, torneio }: Moda
 
     useEffect(() => {
         if (torneio) {
-            setEditNome(torneio.nome)
-            setEditData(torneio.data_evento)
+            setEditNome(torneio.nome || '')
+            setEditData(torneio.data_evento || '')
         }
     }, [torneio])
 
