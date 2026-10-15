@@ -227,7 +227,7 @@ export default function GerarPastas() {
                     </div>
                   </div>
 
-                  {/* LISTA DE PASTAS DOS ATLETAS (ACORDEÃO) */}
+                  {/* LISTA DE PASTAS DOS ATLETAS */}
                   {expandedIdx === idx && (
                     <div className="bg-gray-50/80 dark:bg-[#111113] p-4 px-12 border-t border-gray-100 dark:border-[#2A2A2A]">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

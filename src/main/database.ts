@@ -23,23 +23,81 @@ export function iniciarBaseDados() {
         if (err) {
             console.error('Erro ao abrir base de dados:', err.message)
         } else {
-            console.log('✅ Base de dados ligada com sucesso em:', dbPath)
+            console.log('Base de dados ligada com sucesso em:', dbPath)
             
-            // 4. Cria a tabela relacional com o Soft Delete (data_apagado)
-            const query = `
-                CREATE TABLE IF NOT EXISTS atletas (
-                    numero_fpp INTEGER PRIMARY KEY,
-                    nome TEXT NOT NULL,
-                    clube TEXT NOT NULL,
-                    associacao TEXT NOT NULL,
-                    email TEXT,
-                    telemovel TEXT,
-                    data_apagado TEXT
-                )
-            `
-            db?.run(query, (err) => {
-                if (err) console.error('Erro ao criar tabela de atletas:', err.message)
-                else console.log('✅ Tabela de atletas verificada/criada.')
+            // 4. Cria as nossas tabelas
+            db?.serialize(() =>{
+
+                const tratarErro = (nomeTabela: string) => (err: Error | null) => {
+                    if (err) console.error(`Erro na tabela ${nomeTabela}:`, err.message)
+                }
+
+                //Tabela de atletas
+                db?.run(`
+                    CREATE TABLE IF NOT EXISTS atletas (
+                        numero_fpp INTEGER PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        clube TEXT NOT NULL,
+                        associacao TEXT NOT NULL,
+                        email TEXT,
+                        telemovel TEXT,
+                        data_apagado TEXT
+                    )
+                `, tratarErro('atletas'))
+
+                //Tabela de Torneios
+                db?.run(`
+                    CREATE TABLE IF NOT EXISTS torneios(
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT NOT NULL,
+                        data_evento TEXT,
+                        data_criacao TEXT NOT NULL,
+                        caminho_pasta TEXT,
+                        estado TEXT DEFAULT 'aberto',
+                        data_apagado TEXT
+                    ) 
+                `, tratarErro('torneios'))
+
+                db?.run(`ALTER TABLE torneios ADD COLUMN data_apagado TEXT`, (err) => {
+                    // Se o SQLite reclamar que a coluna já existe, nós ignoramos pacificamente
+                    if (err && !err.message.includes('duplicate column name')) {
+                        console.error('Erro na migração dos torneios:', err.message)
+                    } else if (!err) {
+                        console.log('Migração: Coluna data_apagado adicionada aos torneios com sucesso.')
+                    }
+                })
+
+                //Tabela de pedidos
+                db?.run(`
+                    CREATE TABLE IF NOT EXISTS pedidos(
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        torneio_id INTEGER NOT NULL,
+                        numero_fpp INTEGER,
+                        nome TEXT,
+                        clube TEXT,
+                        associacao TEXT,
+                        email TEXT,
+                        telemovel TEXT,
+                        escalao TEXT,
+                        tipo_pedido TEXT,
+                        podio BOOLEAN DEFAULT 0,
+                        valor_final REAL NOT NULL,
+                        estado TEXT DEFAULT 'pendente',
+                        data_criacao TEXT NOT NULL,
+                        FOREIGN KEY (torneio_id) REFERENCES torneios (id)
+                    ) 
+                `, tratarErro('pedidos'))
+
+                db?.run(`
+                    CREATE TABLE IF NOT EXISTS precos(
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome_pedido TEXT NOT NULL,
+                        valor_padrao REAL NOT NULL
+                    )       
+                `, (err) => {
+                    tratarErro('precos')(err)
+                    if (!err) console.log('Todas as tabelas verificadas/criadas com sucesso.')
+                })
             })
         }
     })

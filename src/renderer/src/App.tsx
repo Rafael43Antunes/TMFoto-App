@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import Home from './pages/Home'
 import BaseDados from './pages/BaseDados'
 import Pastas from './pages/Pastas'
-//import Torneios from './pages/Torneios'
+import Torneios from './pages/Torneios'
 //import Envios from './pages/Envios'
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -69,7 +69,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/basedados" element={<BaseDados />} />
           <Route path="/pastas" element={<Pastas />} /> 
-          {/* <Route path="/torneios" element={<Torneios />} /> */}
+          <Route path="/torneios" element={<Torneios />} /> 
           {/* <Route path="/envios" element={<Envios />} /> */}
         </Routes>
       </Layout>

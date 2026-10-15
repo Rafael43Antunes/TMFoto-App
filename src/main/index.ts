@@ -60,6 +60,7 @@ app.whenReady().then(() => {
 
   const db = iniciarBaseDados()
 
+  // ===================== BASE DE DADOS ATLETAS ===========================================
   ipcMain.handle('get-atletas', async () => {
     return new Promise((resolve, reject) => {
       const query = 'SELECT * FROM atletas WHERE data_apagado IS NULL ORDER BY associacao ASC, clube ASC, numero_fpp ASC'
@@ -177,6 +178,7 @@ app.whenReady().then(() => {
     }
   })
 
+  //=================== FOTOS HOME ======================================
   ipcMain.handle('get-fotos-slideshow', async () => {
     try {
       const caminhoBD = getCaminhoBD()
@@ -218,7 +220,7 @@ app.whenReady().then(() => {
     shell.openPath(pastaSlideshow)
   })
 
-  //PDF =================================================
+  //=============================== PDF Com IA PASTAS =================================================
   ipcMain.handle('escolher-pdf', async (event) => {
     const janelaAtiva = BrowserWindow.fromWebContents(event.sender)
 
@@ -332,6 +334,230 @@ app.whenReady().then(() => {
     }
   })
 
+  // ============================= TORNEIOS ==============================
+  ipcMain.handle('get-torneios', async () => {
+    return new Promise((resolve) =>{
+      db.all(`SELECT * FROM torneios WHERE estado != 'apagado' ORDER BY id DESC`, [], (err, rows) => {
+        if(err){
+          console.error('Erro ao ler torneios:', err)
+          resolve({sucesso: false, erro: err.message, dados: []} )
+        }else{
+          resolve({sucesso: true, dados: rows })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('add-torneio', async (event, novoTorneio) => {
+    return new Promise((resolve) => {
+      const { nome, data_evento, data_criacao, caminho_pasta } = novoTorneio
+      
+      const query = `
+        INSERT INTO torneios (nome, data_evento, data_criacao, caminho_pasta, estado) 
+        VALUES (?, ?, ?, ?, ?)
+      `
+      
+      const valores = [nome, data_evento, data_criacao, caminho_pasta, 'aberto']
+
+      db.run(query, valores, function (err) {
+        if (err) {
+          console.error('Erro ao inserir torneio:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true, id: this.lastID })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('soft-delete-torneio', async (event, id) => {
+    return new Promise((resolve) => {
+      // Usamos a data ISO para saber exatamente quando foi apagado (para os 7 dias)
+      const dataApagado = new Date().toISOString()
+      const query = `UPDATE torneios SET data_apagado = ?, estado = 'apagado' WHERE id = ?`
+      const valores = [dataApagado, id]
+
+      console.log('--- A EXECUTAR APAGAR TORNEIO ---')
+      console.log('ID do torneio:', id)
+
+      db.run(query, valores, function (err) {
+        if (err) {
+          console.error('Erro ao apagar torneio:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('update-torneio', async (event, dadosTorneio) => {
+    return new Promise((resolve) => {
+      const { id, nome, data_evento } = dadosTorneio
+      
+      const query = `UPDATE torneios SET nome = ?, data_evento = ? WHERE id = ?`
+      const valores = [nome, data_evento, id]
+
+      console.log('--- A EXECUTAR ATUALIZAR TORNEIO ---')
+      console.log('Novos dados:', dadosTorneio)
+
+      db.run(query, valores, function (err) {
+        if (err) {
+          console.error('Erro ao atualizar torneio:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('get-torneios-apagados', async () => {
+    return new Promise((resolve) => {
+      db.all(`SELECT * FROM torneios WHERE estado = 'apagado' ORDER BY id DESC`, [], (err, rows) => {
+        if (err) {
+          console.error('Erro ao ler torneios apagados:', err)
+          resolve({ sucesso: false, erro: err.message, dados: [] })
+        } else {
+          resolve({ sucesso: true, dados: rows })
+        }
+      })
+    })
+  })
+
+  // ========================== PREÇOS ========================
+
+  // LER TODOS OS PREÇOS
+  ipcMain.handle('get-precos', async () => {
+    return new Promise((resolve) => {
+      db.all(`SELECT * FROM precos ORDER BY id ASC`, [], (err, rows) => {
+        if (err) {
+          console.error('Erro ao ler preços:', err)
+          resolve({ sucesso: false, erro: err.message, dados: [] })
+        } else {
+          resolve({ sucesso: true, dados: rows })
+        }
+      })
+    })
+  })
+
+  // ADICIONAR NOVO PREÇO
+  ipcMain.handle('add-preco', async (event, dados) => {
+    return new Promise((resolve) => {
+      const { nome_pedido, valor_padrao } = dados
+      db.run(
+        `INSERT INTO precos (nome_pedido, valor_padrao) VALUES (?, ?)`, 
+        [nome_pedido, valor_padrao], 
+        function (err) {
+          if (err) {
+            console.error('Erro ao adicionar preço:', err)
+            resolve({ sucesso: false, erro: err.message })
+          } else {
+            resolve({ sucesso: true, id: this.lastID })
+          }
+      })
+    })
+  })
+
+  // ATUALIZAR UM PREÇO EXISTENTE
+  ipcMain.handle('update-preco', async (event, dados) => {
+    return new Promise((resolve) => {
+      const { id, nome_pedido, valor_padrao } = dados
+      db.run(
+        `UPDATE precos SET nome_pedido = ?, valor_padrao = ? WHERE id = ?`, 
+        [nome_pedido, valor_padrao, id], 
+        function (err) {
+          if (err) {
+            console.error('Erro ao atualizar preço:', err)
+            resolve({ sucesso: false, erro: err.message })
+          } else {
+            resolve({ sucesso: true })
+          }
+      })
+    })
+  })
+
+  // APAGAR UM PREÇO
+  ipcMain.handle('delete-preco', async (event, id) => {
+    return new Promise((resolve) => {
+      db.run(`DELETE FROM precos WHERE id = ?`, [id], function (err) {
+        if (err) {
+          console.error('Erro ao apagar preço:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
+  // ============= PEDIDOS DE TORNEIO =====================
+
+  ipcMain.handle('get-pedidos', async (event, torneioId) => {
+      return new Promise((resolve) => {
+        const query = `SELECT * FROM pedidos WHERE torneio_id = ? AND estado != 'apagado' ORDER BY id DESC`
+
+        db.all(query, [torneioId], (err, rows) => {
+          if (err) {
+            console.error('Erro ao ler pedidos:', err)
+            resolve({ sucesso: false, erro: err.message, dados: [] })
+          } else {
+            resolve({ sucesso: true, dados: rows })
+          }
+        })
+      })
+  })
+
+  //===================== Importar Torneios =======================
+
+  ipcMain.handle('importar-torneios', async (event) => {
+    return new Promise(async (resolve) => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ['openFile'],
+          filters: [{ name: 'Ficheiros Excel', extensions: ['xlsx', 'xls'] }]
+        })
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return resolve({ sucesso: false, erro: 'Operação cancelada' })
+        }
+
+        const caminhoFicheiro = result.filePaths[0]
+        const workbook = xlsx.readFile(caminhoFicheiro)
+        const nomesFolhas = workbook.SheetNames
+
+        const folhasTorneios = nomesFolhas.filter(nome => 
+          nome !== 'Base de Dados' && !nome.toLowerCase().startsWith('folha')
+        )
+
+        let dataFalsa = new Date('2026-10-10') 
+
+        for (const nomeTorneio of folhasTorneios) {
+          const dataStr = dataFalsa.toISOString().split('T')[0] 
+          
+          await new Promise((resDB, rejDB) => {
+            const query = `INSERT INTO torneios (nome, data_evento, data_criacao, estado) VALUES (?, ?, ?, ?)`
+            const valores = [nomeTorneio, dataStr, new Date().toISOString(), 'concluido']
+            
+            db.run(query, valores, (err) => {
+              if (err) rejDB(err)
+              else resDB(true)
+            })
+          })
+
+          dataFalsa.setDate(dataFalsa.getDate() - 7)
+        }
+
+        resolve({ sucesso: true, quantidade: folhasTorneios.length })
+
+      } catch (error: any) {
+        console.error('Erro na importação:', error)
+        resolve({ sucesso: false, erro: error.message })
+      }
+    })
+  })
+
+  //================================================================
   createWindow()
 
   app.on('activate', function () {
