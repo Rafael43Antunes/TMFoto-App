@@ -6,6 +6,7 @@ import { ModalNovoTorneio } from '../components/ModalNovoTorneio'
 import { ModalEditarTorneio } from '../components/ModalEditarTorneio'
 import { ModalConfirmarApagar } from '../components/ModalConfirmarApagar'
 import { PedidosTorneio } from '../components/PedidosTorneio'
+import { ModalConfirmarRestauro } from '../components/ModalConfirmarRestauro'
 
 export default function GestaoPedidos() {
     const [torneios, setTorneios] = useState<any[]>([])
@@ -19,6 +20,8 @@ export default function GestaoPedidos() {
     const [showModalNovo, setShowModalNovo] = useState(false)
     const [torneioParaApagar, setTorneioParaApagar] = useState<any>(null)
     const [torneioParaEditar, setTorneioParaEditar] = useState<any>(null)
+
+    const [torneioParaRestaurar, setTorneioParaRestaurar] = useState<any>(null)
 
     const carregarTorneios = async () => {
         try{
@@ -237,7 +240,10 @@ export default function GestaoPedidos() {
                                         <Trash2 className="w-6 h-6" />
                                     </div>
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); /* Criaremos a função restaurarTorneio a seguir */ }} 
+                                        onClick={async (e) => { 
+                                            e.stopPropagation();
+                                            setTorneioParaRestaurar(torneio);
+                                        }}
                                         className="px-3 py-1.5 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
                                     >
                                         Restaurar
@@ -277,6 +283,13 @@ export default function GestaoPedidos() {
                 onClose={() => setTorneioParaApagar(null)} 
                 onSuccess={() => { carregarTorneios(); carregarApagados(); }} 
                 torneio={torneioParaApagar} 
+            />
+
+            <ModalConfirmarRestauro 
+                isOpen={torneioParaRestaurar !== null} 
+                onClose={() => setTorneioParaRestaurar(null)} 
+                onSuccess={() => { carregarTorneios(); carregarApagados(); }} 
+                torneio={torneioParaRestaurar} 
             />
 
         </div>

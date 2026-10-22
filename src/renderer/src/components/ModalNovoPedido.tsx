@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Calculator } from "lucide-react"
+import { X, Calculator, AlertTriangle } from "lucide-react"
 
 interface ModalNovoPedidoProps {
     isOpen: boolean
@@ -22,14 +22,20 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     // Gestão de Preços e Produtos
     const [tabelaPrecos, setTabelaPrecos] = useState<any[]>([])
     const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([])
-    const [valorManual, setValorManual] = useState<string>('') // Para sobrescrever se necessário
+    const [valorManual, setValorManual] = useState<string>('') 
+
+    const [atletasDB, setAtletasDB] = useState<any[]>([])
     
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    const [showConfirmExit, setShowConfirmExit] = useState(false)
 
     // Carregar preços ao abrir a modal
     useEffect(() => {
         if (isOpen) {
             carregarPrecos()
+            carregarAtletas()
+
             // Limpar formulário
             setNome(''); setNumeroFpp(''); setClube(''); setAssociacao('');
             setEscalao(''); setEmail(''); setTelemovel(''); setTemPodio(false);
@@ -40,6 +46,71 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     const carregarPrecos = async () => {
         const resultado = await (window as any).api.getPrecos()
         if (resultado.sucesso) setTabelaPrecos(resultado.dados)
+    }
+
+    const carregarAtletas = async () => {
+        try {
+            const resultado = await (window as any).api.getAtletas()
+            
+            // Verifica se o backend mandou diretamente a lista (array)
+            if (Array.isArray(resultado)) {
+                setAtletasDB(resultado)
+                console.log("Atletas carregados com sucesso:", resultado.length)
+            } 
+            else if (resultado && resultado.sucesso) {
+                setAtletasDB(resultado.dados)
+                console.log("Atletas carregados (Result Pattern):", resultado.dados.length)
+            }
+        } catch (error) {
+            console.error("Erro ao carregar atletas:", error)
+        }
+    }
+
+    //Procura de atletas
+    const preencherDadosAtleta = (atleta: any) => {
+        if (atleta.nome) setNome(atleta.nome)
+        if (atleta.numero_fpp) setNumeroFpp(String(atleta.numero_fpp))
+        if (atleta.clube) setClube(atleta.clube)
+        if (atleta.associacao) setAssociacao(atleta.associacao)
+        if (atleta.escalao) setEscalao(atleta.escalao)
+        if (atleta.email) setEmail(atleta.email)
+        if (atleta.telemovel) setTelemovel(atleta.telemovel)
+    }
+
+    const handleFppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setNumeroFpp(val)
+
+        console.log("A pesquisar pelo FPP:", val)
+        console.log("Quantos atletas temos na memória?", atletasDB.length)
+        if (atletasDB.length > 0) {
+             console.log("Exemplo do primeiro atleta da lista:", atletasDB[0])
+        }
+        
+        if (val.trim().length > 0) {
+            // Procura um FPP exatamente igual
+            const atletaEncontrado = atletasDB.find(a => String(a.numero_fpp) === String(val))
+            if (atletaEncontrado) 
+                preencherDadosAtleta(atletaEncontrado)
+        }
+    }
+
+    const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setNome(val)
+
+        console.log("A pesquisar pelo FPP:", val)
+        console.log("Quantos atletas temos na memória?", atletasDB.length)
+        if (atletasDB.length > 0) {
+             console.log("Exemplo do primeiro atleta da lista:", atletasDB[0])
+        }
+        
+        if (val.trim().length > 0) {
+            // Procura um nome exatamente igual
+            const atletaEncontrado = atletasDB.find(a => a.nome.toLowerCase() === val.toLowerCase())
+            if (atletaEncontrado) 
+                preencherDadosAtleta(atletaEncontrado)
+        }
     }
 
     // Calcula o total com base nas checkboxes selecionadas
@@ -98,10 +169,26 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
 
     if (!isOpen) return null
 
+    const tentarFecharModal = () => {
+        // Verifica se há pelo menos um campo escrito ou um produto selecionado
+        const temDadosInseridos = nome !== '' || numeroFpp !== '' || produtosSelecionados.length > 0 || valorManual !== ''
+
+        if (temDadosInseridos) {
+            setShowConfirmExit(true)
+        } else {
+            onClose()
+        } 
+    }
+
+    const confirmarSaida = () => {
+        setShowConfirmExit(false)
+        onClose()
+    }
+
     const totalCalculado = calcularTotalAutomatico()
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={tentarFecharModal}>
             <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]" onClick={e => e.stopPropagation()}>
                 
                 <div className="p-5 px-6 border-b border-gray-100 dark:border-[#2A2A2A] flex justify-between items-center bg-gray-50 dark:bg-[#1A1A1D]">
@@ -109,7 +196,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                         <h2 className="text-xl font-bold text-gray-800 dark:text-white">Registar Novo Pedido</h2>
                         <p className="text-sm text-gray-500">Introduz os dados do atleta e seleciona os produtos.</p>
                     </div>
-                    <button onClick={onClose} className="p-2 bg-gray-200 dark:bg-[#2A2A2A] hover:bg-red-500 hover:text-white rounded-lg transition-colors text-gray-600 dark:text-gray-400">
+                    <button onClick={tentarFecharModal} className="p-2 bg-gray-200 dark:bg-[#2A2A2A] hover:bg-red-500 hover:text-white rounded-lg transition-colors text-gray-600 dark:text-gray-400">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -122,33 +209,64 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                         <div className="grid grid-cols-3 gap-4">
                             <div className="col-span-1">
                                 <label className="block text-xs font-medium text-gray-500 mb-1">FPP</label>
-                                <input type="number" value={numeroFpp} onChange={e => setNumeroFpp(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                                <input 
+                                    type="number"
+                                    value={numeroFpp}
+                                    onChange={handleFppChange} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white"
+                                />
                             </div>
                             <div className="col-span-2">
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Nome Completo *</label>
-                                <input type="text" value={nome} onChange={e => setNome(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" autoFocus />
+                                <input 
+                                    type="text" 
+                                    value={nome} 
+                                    onChange={handleNomeChange} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white"
+                                    autoFocus 
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Clube</label>
-                                <input type="text" value={clube} onChange={e => setClube(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                                <input 
+                                    type="text" 
+                                    value={clube} 
+                                    onChange={e => setClube(e.target.value)} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Escalão</label>
-                                <input type="text" value={escalao} onChange={e => setEscalao(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                                <input 
+                                    type="text" 
+                                    value={escalao} 
+                                    onChange={e => setEscalao(e.target.value)} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                                <input 
+                                    type="email" 
+                                    value={email} 
+                                    onChange={e => setEmail(e.target.value)} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Telemóvel</label>
-                                <input type="text" value={telemovel} onChange={e => setTelemovel(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                                <input 
+                                    type="text" 
+                                    value={telemovel} 
+                                    onChange={e => setTelemovel(e.target.value)} 
+                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -206,7 +324,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                 </div>
 
                 <div className="p-4 border-t border-gray-100 dark:border-[#2A2A2A] bg-gray-50 dark:bg-[#1A1A1D] flex justify-end gap-3 rounded-b-2xl mt-auto">
-                    <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2A2A2D] rounded-xl transition-colors">
+                    <button onClick={tentarFecharModal} className="px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2A2A2D] rounded-xl transition-colors">
                         Cancelar
                     </button>
                     <button 
@@ -219,6 +337,38 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                 </div>
 
             </div>
+            {showConfirmExit && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+                        
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle className="w-8 h-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Perder Progresso?</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Tens dados preenchidos que não foram guardados. Se saíres agora, vais perder as alterações.
+                            </p>
+                        </div>
+
+                        <div className="p-4 bg-gray-50 dark:bg-[#1A1A1D] border-t border-gray-100 dark:border-[#2A2A2A] flex gap-3">
+                            <button 
+                                onClick={() => setShowConfirmExit(false)} 
+                                className="flex-1 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2A2A2D] rounded-xl transition-colors"
+                            >
+                                Ficar e Editar
+                            </button>
+                            <button 
+                                onClick={confirmarSaida} 
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md"
+                            >
+                                Sim, Sair
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

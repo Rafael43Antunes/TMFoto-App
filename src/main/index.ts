@@ -337,7 +337,19 @@ app.whenReady().then(() => {
   // ============================= TORNEIOS ==============================
   ipcMain.handle('get-torneios', async () => {
     return new Promise((resolve) =>{
-      db.all(`SELECT * FROM torneios WHERE estado != 'apagado' ORDER BY id DESC`, [], (err, rows) => {
+      const query = `
+        SELECT 
+          t.*, 
+          COUNT(p.id) as pedidos, 
+          COALESCE(SUM(p.valor_final), 0) as faturado 
+        FROM torneios t
+        LEFT JOIN pedidos p ON t.id = p.torneio_id AND p.estado != 'apagado'
+        WHERE t.estado != 'apagado' 
+        GROUP BY t.id 
+        ORDER BY t.id DESC
+      `
+
+      db.all(query, [], (err, rows) => {
         if(err){
           console.error('Erro ao ler torneios:', err)
           resolve({sucesso: false, erro: err.message, dados: []} )
@@ -425,6 +437,20 @@ app.whenReady().then(() => {
     })
   })
 
+  ipcMain.handle('restore-torneio', async (event, id) => {
+    return new Promise((resolve) => {
+      const query = `UPDATE torneios SET data_apagado = NULL, estado = 'aberto' WHERE id = ?`
+      db.run(query, [id], function (err) {
+        if (err) {
+          console.error('Erro ao restaurar torneio:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
   // ========================== PREÇOS ========================
 
   // LER TODOS OS PREÇOS
@@ -495,7 +521,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-pedidos', async (event, torneioId) => {
       return new Promise((resolve) => {
-        const query = `SELECT * FROM pedidos WHERE torneio_id = ? AND estado != 'apagado' ORDER BY id DESC`
+        const query = `SELECT * FROM pedidos WHERE torneio_id = ? AND estado != 'apagado' ORDER BY id ASC`
 
         db.all(query, [torneioId], (err, rows) => {
           if (err) {
@@ -506,6 +532,99 @@ app.whenReady().then(() => {
           }
         })
       })
+  })
+
+  ipcMain.handle('add-pedido', async (event, dados) => {
+    return new Promise((resolve) => {
+      const { 
+        torneio_id, numero_fpp, nome, clube, associacao, 
+        email, telemovel, escalao, tipo_pedido, podio, valor_final 
+      } = dados
+      
+      const data_criacao = new Date().toISOString()
+
+      const query = `
+        INSERT INTO pedidos (
+          torneio_id, numero_fpp, nome, clube, associacao, 
+          email, telemovel, escalao, tipo_pedido, podio, valor_final, data_criacao
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      
+      // O ternário (podio ? 1 : 0) converte o boolean do React para número do SQLite
+      const valores = [
+        torneio_id, numero_fpp, nome, clube, associacao, 
+        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, data_criacao
+      ]
+
+      db.run(query, valores, function(err) {
+        if (err) {
+          console.error('Erro ao adicionar pedido:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true, id: this.lastID })
+        }
+      })
+    })
+  })
+
+  // ATUALIZAR ESTADO DO PEDIDO (Pendente <-> Concluído)
+  ipcMain.handle('update-estado-pedido', async (event, dados) => {
+    return new Promise((resolve) => {
+      const { id, estado } = dados
+      db.run(`UPDATE pedidos SET estado = ? WHERE id = ?`, [estado, id], function(err) {
+        if (err) {
+          console.error('Erro ao atualizar estado do pedido:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
+  // SOFT DELETE DO PEDIDO 
+  ipcMain.handle('soft-delete-pedido', async (event, id) => {
+    return new Promise((resolve) => {
+      const dataApagado = new Date().toISOString()
+      db.run(`UPDATE pedidos SET estado = 'apagado', data_apagado = ? WHERE id = ?`, [dataApagado, id], function(err) {
+        if (err) {
+          console.error('Erro ao apagar pedido:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('update-pedido', async (event, dados) => {
+    return new Promise((resolve) => {
+      const { 
+        id, numero_fpp, nome, clube, associacao, 
+        email, telemovel, escalao, tipo_pedido, podio, valor_final 
+      } = dados
+      
+      const query = `
+        UPDATE pedidos SET
+          numero_fpp = ?, nome = ?, clube = ?, associacao = ?, 
+          email = ?, telemovel = ?, escalao = ?, tipo_pedido = ?, 
+          podio = ?, valor_final = ?
+        WHERE id = ?
+      `
+      const valores = [
+        numero_fpp, nome, clube, associacao, 
+        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, id
+      ]
+
+      db.run(query, valores, function(err) {
+        if (err) {
+          console.error('Erro ao atualizar pedido:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({ sucesso: true })
+        }
+      })
+    })
   })
 
   //===================== Importar Torneios =======================

@@ -24,6 +24,7 @@ const api = {
   softDeleteTorneio: (id: number) => ipcRenderer.invoke('soft-delete-torneio', id),
   updateTorneio: (dados: any) => ipcRenderer.invoke('update-torneio', dados),
   getTorneiosApagados: () => ipcRenderer.invoke('get-torneios-apagados'),
+  restoreTorneio: (id: number) => ipcRenderer.invoke('restore-torneio', id),
 
   //Preços
   getPrecos: () => ipcRenderer.invoke('get-precos'),
@@ -32,6 +33,11 @@ const api = {
   deletePreco: (id: number) => ipcRenderer.invoke('delete-preco', id),
 
   getPedidos: (torneioId: number) => ipcRenderer.invoke('get-pedidos', torneioId),
+  addPedido: (dados: any) => ipcRenderer.invoke('add-pedido', dados),
+  updateEstadoPedido: (dados: any) => ipcRenderer.invoke('update-estado-pedido', dados),
+  softDeletePedido: (id: number) => ipcRenderer.invoke('soft-delete-pedido', id),
+  updatePedido: (dados: any) => ipcRenderer.invoke('update-pedido', dados),
+
 
   importarTorneios: () => ipcRenderer.invoke('importar-torneios')
 }
