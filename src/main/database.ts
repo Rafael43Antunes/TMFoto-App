@@ -98,6 +98,14 @@ export function iniciarBaseDados() {
                     tratarErro('precos')(err)
                     if (!err) console.log('Todas as tabelas verificadas/criadas com sucesso.')
                 })
+
+                db?.run(`ALTER TABLE pedidos ADD COLUMN data_apagado TEXT`, (err) => {
+                    if (err && !err.message.includes('duplicate column name')) {
+                        console.error('Erro na migração dos pedidos:', err.message)
+                    } else if (!err) {
+                        console.log('✅ Migração: Coluna data_apagado adicionada aos pedidos com sucesso.')
+                    }
+                })
             })
         }
     })

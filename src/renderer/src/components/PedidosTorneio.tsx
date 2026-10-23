@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Search, Package, Edit2, Trash2, Check, X} from "lucide
 import { ModalNovoPedido } from './ModalNovoPedido'
 import { ModalEditarPedido } from './ModalEditarPedido'
 import { ModalConfirmarApagarPedido } from './ModalConfirmarApagarPedido'
+import { ModalReverterEstado } from './ModalReverterEstado'
 
 interface PedidosTorneioProps {
     torneio: any
@@ -15,6 +16,7 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
 
     const [pedidoParaEditar, setPedidoParaEditar] = useState<any>(null)
     const [pedidoParaApagar, setPedidoParaApagar] = useState<any>(null)
+    const [pedidoParaReverter, setPedidoParaReverter] = useState<any>(null)
 
     useEffect(() => {
         carregarPedidos()
@@ -32,32 +34,17 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
     const alternarEstadoPedido = async (pedido: any) => {
         // A lógica do botão com o novo aviso
         if (pedido.estado === 'concluido') {
-            const confirmar = window.confirm("Este pedido já estava marcado como concluído. Queres mesmo revertê-lo para pendente?")
-            if (!confirmar) return
+            setPedidoParaReverter(pedido)
+            return
         }
 
-        const novoEstado = pedido.estado === 'pendente' ? 'concluido' : 'pendente'
-        
         const resultado = await (window as any).api.updateEstadoPedido({
             id: pedido.id,
-            estado: novoEstado
+            estado: 'concluido'
         })
 
         if (resultado.sucesso) carregarPedidos()
         else alert("Erro ao alterar estado: " + resultado.erro)
-    }
-
-    const apagarPedido = async (id: number) => {
-        const confirmar = window.confirm("Queres mesmo apagar este pedido? Ele vai para a reciclagem durante 8 horas.")
-        if (!confirmar) return
-
-        const resultado = await (window as any).api.softDeletePedido(id)
-
-        if (resultado.sucesso) {
-            carregarPedidos()
-        } else {
-            alert("Erro ao apagar: " + resultado.erro)
-        }
     }
 
     
@@ -180,7 +167,7 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
 
                                                 {/* Botão Apagar */}
                                                 <button 
-                                                    onClick={() => apagarPedido(pedido.id)}
+                                                    onClick={() => setPedidoParaApagar(pedido)}
                                                     title="Apagar Pedido"
                                                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                                                 >
@@ -215,6 +202,13 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                 onClose={() => setPedidoParaApagar(null)}
                 onSuccess={carregarPedidos}
                 pedido={pedidoParaApagar}
+            />
+
+            <ModalReverterEstado
+                isOpen={pedidoParaReverter !== null}
+                onClose={() => setPedidoParaReverter(null)}
+                onSuccess={carregarPedidos}
+                pedido={pedidoParaReverter}
             />
         </div>
     )
