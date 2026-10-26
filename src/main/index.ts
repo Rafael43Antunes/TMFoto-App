@@ -692,91 +692,139 @@ app.whenReady().then(() => {
 
   // IMPORTAR DADOS DE TORNEIOS PASSADOS
 ipcMain.handle('importar-excel-torneios', async () => {
-    return new Promise(async (resolve) => {
-        try {
-            const { canceled, filePaths } = await dialog.showOpenDialog({
-                title: 'Migrar Ficheiro Excel',
-                filters: [{ name: 'Ficheiros Excel', extensions: ['xlsx', 'xls'] }],
-                properties: ['openFile']
+    
+    const executarQuery = (query: string, params: any[] = []): Promise<any> => {
+        return new Promise((resolve, reject) => {
+            db.run(query, params, function(err) {
+                if (err) reject(err)
+                else resolve(this)
             })
+        })
+    }
 
-            if (canceled || filePaths.length === 0) {
-                resolve({ sucesso: false, erro: 'Operação cancelada' })
-                return
+    try {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Migrar Ficheiro Excel',
+            filters: [{ name: 'Ficheiros Excel', extensions: ['xlsx', 'xls'] }],
+            properties: ['openFile']
+        })
+
+        if (canceled || filePaths.length === 0) return { sucesso: false, erro: 'Operação cancelada' }
+
+        const workbook = xlsx.readFile(filePaths[0])
+        let torneiosCriados = 0
+        let pedidosCriados = 0
+        
+        await executarQuery('BEGIN TRANSACTION')
+
+        for (const sheetName of workbook.SheetNames) {
+            if (sheetName.toLowerCase().includes('base de dados') || sheetName.toLowerCase().includes('folha')) continue;
+
+            const folha = workbook.Sheets[sheetName]
+            
+            // Lemos tudo como uma grelha bruta (sem adivinhar cabeçalhos)
+            const matriz = xlsx.utils.sheet_to_json(folha, { header: 1 }) as any[][]
+            if (matriz.length === 0) continue;
+
+            // 1. Procurar a linha que tem os cabeçalhos (a que contém a palavra 'nome')
+            let rowIndexHeader = -1;
+            for (let i = 0; i < matriz.length; i++) {
+                const row = matriz[i];
+                if (row && row.some(cell => typeof cell === 'string' && cell.toLowerCase().trim() === 'nome')) {
+                    rowIndexHeader = i;
+                    break;
+                }
             }
 
-            const workbook = xlsx.readFile(filePaths[0])
-            let torneiosCriados = 0
-            let pedidosCriados = 0
+            if (rowIndexHeader === -1) continue;
+
+            const cabecalhos = matriz[rowIndexHeader].map(h => typeof h === 'string' ? h.toLowerCase().trim() : '')
+
+            // 2. Descobrir em que posição exata está cada coluna
+            const getIdx = (nomes: string[]) => cabecalhos.findIndex(c => nomes.includes(c));
             
-            // Inicia uma transação para fazer tudo rápido e seguro
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION')
+            const idxFpp = getIdx(['número', 'numero', 'fpp']);
+            const idxNome = getIdx(['nome', 'nome atleta']);
+            const idxClube = getIdx(['clube']);
+            const idxAssoc = getIdx(['associação', 'associacao', 'assoc']);
+            const idxMail = getIdx(['mail', 'contacto']);
+            const idxTel = getIdx(['telemovel', 'telemóvel', 'número telemóvel', 'tlm']);
+            const idxEscalao = getIdx(['escalão', 'escalao', 'esca']);
+            
+            // Colunas financeiras e pódio
+            const idxPen = getIdx(['pen cliente', 'pen']);
+            const idxPatin = getIdx(['patin']);
+            const idxEmailProd = getIdx(['email', 'e-mail']);
+            const idxTratado = getIdx(['tratado']);
 
-                const statementTorneio = db.prepare(`INSERT INTO torneios (nome, data_evento, estado) VALUES (?, ?, 'concluido')`)
-                const statementPedido = db.prepare(`
-                    INSERT INTO pedidos (torneio_id, numero_fpp, nome, clube, escalao, email, telemovel, estado) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'concluido')
-                `)
-                const statementAtleta = db.prepare(`
-                    INSERT OR IGNORE INTO atletas (numero_fpp, nome, clube, email, telemovel) 
-                    VALUES (?, ?, ?, ?, ?)
-                `)
+            const dataHoje = new Date().toISOString().split('T')[0]
+            const dataCriacao = new Date().toISOString()
 
-                // Itera sobre todos os separadores do Excel
-                for (const sheetName of workbook.SheetNames) {
-                    // Ignora a folha base de dados e folhas vazias/inválidas
-                    if (sheetName.toLowerCase().includes('base de dados') || sheetName.toLowerCase().includes('folha')) continue;
+            // 3. Criar o Torneio
+            const resultTorneio = await executarQuery(
+                `INSERT INTO torneios (nome, data_evento, data_criacao, estado) VALUES (?, ?, ?, 'concluido')`, 
+                [sheetName, dataHoje, dataCriacao]
+            )
+            const novoTorneioId = resultTorneio.lastID
+            torneiosCriados++
 
-                    const folha = workbook.Sheets[sheetName]
-                    
-                    // A magia: skiprows = 2 (pula as linhas 0 e 1, porque os cabeçalhos estão na linha 3)
-                    const dadosExcel: any[] = xlsx.utils.sheet_to_json(folha, { range: 2 })
+            // 4. Ler os dados a partir da linha seguinte ao cabeçalho
+            for (let i = rowIndexHeader + 1; i < matriz.length; i++) {
+                const row = matriz[i]
+                if (!row || row.length === 0) continue;
 
-                    if (dadosExcel.length === 0) continue;
+                const nome = idxNome !== -1 && row[idxNome] ? String(row[idxNome]).trim() : ''
+                if (!nome) continue;
 
-                    // 1. Cria o Torneio usando o nome do separador (ex: "XI Torneio Cidade Tomar")
-                    statementTorneio.run([sheetName, new Date().toISOString().split('T')[0]], function(this: any, err) {
-                        if (err) return;
-                        const novoTorneioId = this.lastID
-                        torneiosCriados++
-
-                        // 2. Lê cada linha (pedido) dentro desse separador
-                        dadosExcel.forEach(linha => {
-                            // Mapeia as colunas baseadas nos cabeçalhos reais que vi na linha 3
-                            const fpp = linha['Número'] || linha['NÚMERO'] || null
-                            const nome = linha['Nome'] || linha['NOME'] || ''
-                            const clube = linha['Clube'] || linha['CLUBE'] || ''
-                            const escalao = linha['Escalão'] || linha['ESCALÃO'] || ''
-                            const email = linha['Mail'] || linha['email'] || linha['EMAIL'] || ''
-                            const telemovel = linha['Telemovel'] || linha['NÚMERO TELEMÓVEL'] || ''
-                            
-                            if (nome) {
-                                // 2A. Regista o Pedido associado a este Torneio
-                                statementPedido.run([novoTorneioId, fpp, nome, clube, escalao, email, telemovel], (errP) => {
-                                    if (!errP) pedidosCriados++
-                                })
-
-                                // 2B. Aproveita e guarda logo o atleta na Base de Dados global (sem duplicar)
-                                statementAtleta.run([fpp, nome, clube, email, telemovel])
-                            }
-                        })
-                    })
+                // Proteção para FPP numéricos limpos
+                const rawFpp = idxFpp !== -1 && row[idxFpp] ? row[idxFpp] : null
+                const fpp = rawFpp ? parseInt(String(rawFpp), 10) : null
+                
+                const clube = idxClube !== -1 && row[idxClube] ? String(row[idxClube]).trim() : ''
+                const associacao = idxAssoc !== -1 && row[idxAssoc] ? String(row[idxAssoc]).trim() : ''
+                const emailContacto = idxMail !== -1 && row[idxMail] ? String(row[idxMail]).trim() : ''
+                const telemovel = idxTel !== -1 && row[idxTel] ? String(row[idxTel]).trim() : ''
+                const escalao = idxEscalao !== -1 && row[idxEscalao] ? String(row[idxEscalao]).trim() : ''
+                
+                // Converter os valores (substituindo vírgulas por pontos se necessário)
+                const parsePreco = (val: any) => {
+                    if (!val) return 0;
+                    const num = parseFloat(String(val).replace(',', '.'));
+                    return isNaN(num) ? 0 : num;
                 }
 
-                db.run('COMMIT', () => {
-                    statementTorneio.finalize()
-                    statementPedido.finalize()
-                    statementAtleta.finalize()
-                    resolve({ sucesso: true, torneios: torneiosCriados, pedidos: pedidosCriados })
-                })
-            })
+                const valPen = idxPen !== -1 ? parsePreco(row[idxPen]) : 0;
+                const valPatin = idxPatin !== -1 ? parsePreco(row[idxPatin]) : 0;
+                const valEmail = idxEmailProd !== -1 ? parsePreco(row[idxEmailProd]) : 0;
+                const valorCalculado = valPen + valPatin + valEmail;
 
-        } catch (error: any) {
-            console.error('Erro na migração:', error)
-            resolve({ sucesso: false, erro: error.message })
+                const tratado = idxTratado !== -1 && row[idxTratado] ? String(row[idxTratado]).toLowerCase() : ''
+                const foiPodio = tratado.includes('podio') ? 1 : 0
+
+                // Registar o Pedido com a Associação e Valores Financeiros!
+                await executarQuery(
+                    `INSERT INTO pedidos (torneio_id, numero_fpp, nome, clube, associacao, escalao, email, telemovel, estado, data_criacao, valor_final, podio) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'concluido', ?, ?, ?)`,
+                    [novoTorneioId, fpp, nome, clube, associacao, escalao, emailContacto, telemovel, dataCriacao, valorCalculado, foiPodio]
+                )
+                pedidosCriados++
+
+                // Registar Atleta (se já existir, é ignorado)
+                await executarQuery(
+                    `INSERT OR IGNORE INTO atletas (numero_fpp, nome, clube, associacao, email, telemovel) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [fpp, nome, clube, associacao, emailContacto, telemovel]
+                )
+            }
         }
-    })
+
+        await executarQuery('COMMIT')
+        return { sucesso: true, torneios: torneiosCriados, pedidos: pedidosCriados }
+
+    } catch (error: any) {
+        console.error('⚠️ Erro fatal na migração:', error)
+        await executarQuery('ROLLBACK') 
+        return { sucesso: false, erro: error.message }
+    }
 })
 
   //================================================================
