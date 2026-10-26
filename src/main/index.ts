@@ -451,6 +451,19 @@ app.whenReady().then(() => {
     })
   })
 
+  ipcMain.handle('hard-delete-torneio', async (event, id) => {
+    return new Promise((resolve) => {
+      db.run(`DELETE FROM pedidos WHERE torneio_id = ?`, [id], (err) => {
+        if (err) console.error("Erro ao limpar pedidos do torneio:", err)
+        
+        db.run(`DELETE FROM torneios WHERE id = ?`, [id], function(err2) {
+          if (err2) resolve({ sucesso: false, erro: err2.message })
+          else resolve({ sucesso: true })
+        })
+      })
+    })
+  })
+
   // ========================== PREÇOS ========================
 
   // LER TODOS OS PREÇOS
@@ -627,54 +640,144 @@ app.whenReady().then(() => {
     })
   })
 
-  //===================== Importar Torneios =======================
-
-  ipcMain.handle('importar-torneios', async (event) => {
-    return new Promise(async (resolve) => {
-      try {
-        const result = await dialog.showOpenDialog({
-          properties: ['openFile'],
-          filters: [{ name: 'Ficheiros Excel', extensions: ['xlsx', 'xls'] }]
-        })
-
-        if (result.canceled || result.filePaths.length === 0) {
-          return resolve({ sucesso: false, erro: 'Operação cancelada' })
-        }
-
-        const caminhoFicheiro = result.filePaths[0]
-        const workbook = xlsx.readFile(caminhoFicheiro)
-        const nomesFolhas = workbook.SheetNames
-
-        const folhasTorneios = nomesFolhas.filter(nome => 
-          nome !== 'Base de Dados' && !nome.toLowerCase().startsWith('folha')
-        )
-
-        let dataFalsa = new Date('2026-10-10') 
-
-        for (const nomeTorneio of folhasTorneios) {
-          const dataStr = dataFalsa.toISOString().split('T')[0] 
-          
-          await new Promise((resDB, rejDB) => {
-            const query = `INSERT INTO torneios (nome, data_evento, data_criacao, estado) VALUES (?, ?, ?, ?)`
-            const valores = [nomeTorneio, dataStr, new Date().toISOString(), 'concluido']
-            
-            db.run(query, valores, (err) => {
-              if (err) rejDB(err)
-              else resDB(true)
-            })
-          })
-
-          dataFalsa.setDate(dataFalsa.getDate() - 7)
-        }
-
-        resolve({ sucesso: true, quantidade: folhasTorneios.length })
-
-      } catch (error: any) {
-        console.error('Erro na importação:', error)
-        resolve({ sucesso: false, erro: error.message })
-      }
+  ipcMain.handle('get-pedidos-apagados', async (event, torneioId) => {
+    return new Promise((resolve) => {
+      const query = `SELECT * FROM pedidos WHERE torneio_id = ? AND estado = 'apagado' ORDER BY id ASC`
+      db.all(query, [torneioId], (err, rows) => {
+        if (err) resolve({ sucesso: false, erro: err.message, dados: [] })
+        else resolve({ sucesso: true, dados: rows })
+      })
     })
   })
+
+  ipcMain.handle('restore-pedido', async (event, id) => {
+    return new Promise((resolve) => {
+      db.run(`UPDATE pedidos SET estado = 'pendente', data_apagado = NULL WHERE id = ?`, [id], function(err) {
+        if (err) resolve({ sucesso: false, erro: err.message })
+        else resolve({ sucesso: true })
+      })
+    })
+  })
+
+  ipcMain.handle('hard-delete-pedido', async (event, id) => {
+    return new Promise((resolve) => {
+      db.run(`DELETE FROM pedidos WHERE id = ?`, [id], function(err) {
+        if (err) resolve({ sucesso: false, erro: err.message })
+        else resolve({ sucesso: true })
+      })
+    })
+  })
+
+  // LIMPEZA AUTOMÁTICA 
+  ipcMain.handle('limpar-reciclagem-automatica', async () => {
+    return new Promise((resolve) => {
+      // Calcula exatamente a data/hora de há 8 horas atrás
+      const limite8Horas = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
+      const limite7Dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      
+      const queryPedidos = `DELETE FROM pedidos WHERE estado = 'apagado' AND data_apagado <= ?`
+      const queryTorneios = `DELETE FROM torneios WHERE estado = 'apagado' AND data_apagado <= ?`
+
+      db.run(queryPedidos, [limite8Horas], (err1) => {
+        if (err1) console.error("Erro a limpar pedidos antigos:", err1)
+        db.run(queryTorneios, [limite7Dias], (err2) => {
+          if (err2) console.error("Erro a limpar torneios antigos:", err2)
+          resolve({ sucesso: true })
+        })
+      })
+    })
+  })
+
+  //===================== Importar Torneios =======================
+
+  // IMPORTAR DADOS DE TORNEIOS PASSADOS
+ipcMain.handle('importar-excel-torneios', async () => {
+    return new Promise(async (resolve) => {
+        try {
+            const { canceled, filePaths } = await dialog.showOpenDialog({
+                title: 'Migrar Ficheiro Excel',
+                filters: [{ name: 'Ficheiros Excel', extensions: ['xlsx', 'xls'] }],
+                properties: ['openFile']
+            })
+
+            if (canceled || filePaths.length === 0) {
+                resolve({ sucesso: false, erro: 'Operação cancelada' })
+                return
+            }
+
+            const workbook = xlsx.readFile(filePaths[0])
+            let torneiosCriados = 0
+            let pedidosCriados = 0
+            
+            // Inicia uma transação para fazer tudo rápido e seguro
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION')
+
+                const statementTorneio = db.prepare(`INSERT INTO torneios (nome, data_evento, estado) VALUES (?, ?, 'concluido')`)
+                const statementPedido = db.prepare(`
+                    INSERT INTO pedidos (torneio_id, numero_fpp, nome, clube, escalao, email, telemovel, estado) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'concluido')
+                `)
+                const statementAtleta = db.prepare(`
+                    INSERT OR IGNORE INTO atletas (numero_fpp, nome, clube, email, telemovel) 
+                    VALUES (?, ?, ?, ?, ?)
+                `)
+
+                // Itera sobre todos os separadores do Excel
+                for (const sheetName of workbook.SheetNames) {
+                    // Ignora a folha base de dados e folhas vazias/inválidas
+                    if (sheetName.toLowerCase().includes('base de dados') || sheetName.toLowerCase().includes('folha')) continue;
+
+                    const folha = workbook.Sheets[sheetName]
+                    
+                    // A magia: skiprows = 2 (pula as linhas 0 e 1, porque os cabeçalhos estão na linha 3)
+                    const dadosExcel: any[] = xlsx.utils.sheet_to_json(folha, { range: 2 })
+
+                    if (dadosExcel.length === 0) continue;
+
+                    // 1. Cria o Torneio usando o nome do separador (ex: "XI Torneio Cidade Tomar")
+                    statementTorneio.run([sheetName, new Date().toISOString().split('T')[0]], function(this: any, err) {
+                        if (err) return;
+                        const novoTorneioId = this.lastID
+                        torneiosCriados++
+
+                        // 2. Lê cada linha (pedido) dentro desse separador
+                        dadosExcel.forEach(linha => {
+                            // Mapeia as colunas baseadas nos cabeçalhos reais que vi na linha 3
+                            const fpp = linha['Número'] || linha['NÚMERO'] || null
+                            const nome = linha['Nome'] || linha['NOME'] || ''
+                            const clube = linha['Clube'] || linha['CLUBE'] || ''
+                            const escalao = linha['Escalão'] || linha['ESCALÃO'] || ''
+                            const email = linha['Mail'] || linha['email'] || linha['EMAIL'] || ''
+                            const telemovel = linha['Telemovel'] || linha['NÚMERO TELEMÓVEL'] || ''
+                            
+                            if (nome) {
+                                // 2A. Regista o Pedido associado a este Torneio
+                                statementPedido.run([novoTorneioId, fpp, nome, clube, escalao, email, telemovel], (errP) => {
+                                    if (!errP) pedidosCriados++
+                                })
+
+                                // 2B. Aproveita e guarda logo o atleta na Base de Dados global (sem duplicar)
+                                statementAtleta.run([fpp, nome, clube, email, telemovel])
+                            }
+                        })
+                    })
+                }
+
+                db.run('COMMIT', () => {
+                    statementTorneio.finalize()
+                    statementPedido.finalize()
+                    statementAtleta.finalize()
+                    resolve({ sucesso: true, torneios: torneiosCriados, pedidos: pedidosCriados })
+                })
+            })
+
+        } catch (error: any) {
+            console.error('Erro na migração:', error)
+            resolve({ sucesso: false, erro: error.message })
+        }
+    })
+})
 
   //================================================================
   createWindow()

@@ -4,6 +4,7 @@ import { ModalNovoPedido } from './ModalNovoPedido'
 import { ModalEditarPedido } from './ModalEditarPedido'
 import { ModalConfirmarApagarPedido } from './ModalConfirmarApagarPedido'
 import { ModalReverterEstado } from './ModalReverterEstado'
+import { ModalConfirmarEliminarDefinitivo } from './ModalConfirmarEliminarDefinitivo'
 
 interface PedidosTorneioProps {
     torneio: any
@@ -18,16 +19,37 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
     const [pedidoParaApagar, setPedidoParaApagar] = useState<any>(null)
     const [pedidoParaReverter, setPedidoParaReverter] = useState<any>(null)
 
+    const [pedidosApagados, setPedidosApagados] = useState<any[]>([])
+    const [tabAtiva, setTabAtiva] = useState<'ativos' | 'apagados'>('ativos')
+
     useEffect(() => {
         carregarPedidos()
     }, [torneio.id])
 
+    const [pedidoParaEliminarDefinitivo, setPedidoParaEliminarDefinitivo] = useState<any>(null)
+
+    useEffect(() => {
+        const correrLimpeza = async () => {
+            await (window as any).api.limparReciclagemAutomatica()
+            carregarPedidos()
+        }
+        correrLimpeza()
+    }, [torneio.id])
+
     const carregarPedidos = async () => {
         const resultado = await (window as any).api.getPedidos(torneio.id)
+        const resultadoApagados = await (window as any).api.getPedidosApagados(torneio.id)
+
         if (resultado.sucesso) {
             setPedidos(resultado.dados)
-        } else {
+        } else{
             console.error("Erro ao carregar pedidos:", resultado.erro)
+        }
+
+        if (resultadoApagados.sucesso) {
+            setPedidosApagados(resultadoApagados.dados)
+        } else {
+            console.error("Erro ao carregar pedidos apagados:", resultadoApagados.erro)
         }
     }
 
@@ -47,6 +69,15 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
         else alert("Erro ao alterar estado: " + resultado.erro)
     }
 
+    const restaurarPedido = async (id: number) => {
+        const resultado = await (window as any).api.restorePedido(id)
+        if (resultado.sucesso) {
+            carregarPedidos()
+        } else {
+            alert("Erro ao restaurar: " + resultado.erro)
+        }
+    }
+
     
 
     return (
@@ -60,6 +91,7 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
+                
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">{torneio.nome}</h1>
                     <p className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-2">
@@ -86,6 +118,22 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                     </button>
                 </div>
             </div>
+            <div className="flex items-center gap-6 border-b border-gray-200 dark:border-[#333] mb-6">
+                <button 
+                    onClick={() => setTabAtiva('ativos')}
+                    className={`pb-4 text-sm font-medium transition-colors relative ${tabAtiva === 'ativos' ? 'text-blue-600 dark:text-blue-500' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}
+                >
+                    Pedidos Ativos ({pedidos.length})
+                    {tabAtiva === 'ativos' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-500 rounded-t-full"></span>}
+                </button>
+                <button 
+                    onClick={() => setTabAtiva('apagados')}
+                    className={`pb-4 text-sm font-medium transition-colors relative ${tabAtiva === 'apagados' ? 'text-red-600 dark:text-red-500' : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}
+                >
+                    Reciclagem ({pedidosApagados.length})
+                    {tabAtiva === 'apagados' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 dark:bg-red-500 rounded-t-full"></span>}
+                </button>
+            </div>
 
             {/* Tabela de Pedidos */}
             <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl overflow-hidden shadow-sm flex-1">
@@ -105,79 +153,123 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-[#2A2A2A]">
-                            {pedidos.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                                        <Package className="w-8 h-8 mx-auto mb-3 opacity-20" />
-                                        Nenhum pedido registado neste torneio.
-                                    </td>
-                                </tr>
-                            ) : (
-                                pedidos.map((pedido) => (
-                                    <tr key={pedido.id} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1D]/50 transition-colors">
-                                        <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
-                                        <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{pedido.nome}</td>
-                                        <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.clube}</td>
-                                        <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.escalao}</td>
-                                        <td className="px-4 py-4 text-gray-600 dark:text-gray-400 text-xs">
-                                            <div>{pedido.telemovel}</div>
-                                            <div className="text-gray-400">{pedido.email}</div>
-                                        </td>
-                                        <td className="px-4 py-4 text-gray-600 dark:text-gray-400">
-                                            {pedido.tipo_pedido}
-                                            {pedido.podio === 1 && 
-                                                <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-[10px] font-bold rounded">
-                                                    PÓDIO
-                                                </span>
-                                            }
-                                        </td>
-                                        <td className="px-4 py-4 font-medium text-emerald-600">{pedido.valor_final}€</td>
-                                        <td className="px-4 py-4">
-                                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                                                pedido.estado === 'concluido' 
-                                                ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500' 
-                                                : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-500'
-                                            }`}>
-                                                {pedido.estado === 'concluido' ? 'Concluído' : 'Pendente'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {/* Botão Ready */}
-                                                <button 
-                                                    onClick={() => alternarEstadoPedido(pedido)}
-                                                    title={pedido.estado === 'concluido' ? 'Marcar como Pendente' : 'Marcar como Concluído'}
-                                                    className={`p-1.5 rounded-lg transition-colors ${
-                                                        pedido.estado === 'concluido' 
-                                                        ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' 
-                                                        : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
-                                                    }`}
-                                                >
-                                                    {pedido.estado === 'concluido' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                                                </button>
-
-                                                {/* Botão Editar */}
-                                                <button 
-                                                    onClick={() =>  setPedidoParaEditar(pedido) }
-                                                    title="Editar Pedido"
-                                                    className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-
-                                                {/* Botão Apagar */}
-                                                <button 
-                                                    onClick={() => setPedidoParaApagar(pedido)}
-                                                    title="Apagar Pedido"
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                            {tabAtiva === 'ativos' && (
+                                pedidos.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                                            <Package className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                                            Nenhum pedido registado neste torneio.
                                         </td>
                                     </tr>
-                                ))
+                                ) : (
+                                    pedidos.map((pedido) => (
+                                        <tr key={pedido.id} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1D]/50 transition-colors">
+                                            <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
+                                            <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{pedido.nome}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.clube}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.escalao}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400 text-xs">
+                                                <div>{pedido.telemovel}</div>
+                                                <div className="text-gray-400">{pedido.email}</div>
+                                            </td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">
+                                                {pedido.tipo_pedido}
+                                                {pedido.podio === 1 && 
+                                                    <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-[10px] font-bold rounded">
+                                                        PÓDIO
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td className="px-4 py-4 font-medium text-emerald-600">{pedido.valor_final}€</td>
+                                            <td className="px-4 py-4">
+                                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                                                    pedido.estado === 'concluido' 
+                                                    ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500' 
+                                                    : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-500'
+                                                }`}>
+                                                    {pedido.estado === 'concluido' ? 'Concluído' : 'Pendente'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    {/* Botão Ready */}
+                                                    <button 
+                                                        onClick={() => alternarEstadoPedido(pedido)}
+                                                        title={pedido.estado === 'concluido' ? 'Marcar como Pendente' : 'Marcar como Concluído'}
+                                                        className={`p-1.5 rounded-lg transition-colors ${
+                                                            pedido.estado === 'concluido' 
+                                                            ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' 
+                                                            : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                                                        }`}
+                                                    >
+                                                        {pedido.estado === 'concluido' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                                    </button>
+
+                                                    {/* Botão Editar */}
+                                                    <button 
+                                                        onClick={() =>  setPedidoParaEditar(pedido) }
+                                                        title="Editar Pedido"
+                                                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+
+                                                    {/* Botão Apagar */}
+                                                    <button 
+                                                        onClick={() => setPedidoParaApagar(pedido)}
+                                                        title="Apagar Pedido"
+                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )
                             )}
+                            {tabAtiva === 'apagados' && (
+                                pedidosApagados.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                                            <Trash2 className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                                            A reciclagem está vazia.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    pedidosApagados.map((pedido) => (
+                                        <tr key={pedido.id} className="opacity-60 hover:opacity-100 bg-gray-50/50 dark:bg-[#1A1A1D]/30 transition-opacity">
+                                            <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
+                                            <td className="px-4 py-4 text-gray-800 dark:text-gray-200 line-through decoration-gray-400">{pedido.nome}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.clube}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.escalao}</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400 text-xs">
+                                                <div>{pedido.telemovel}</div>
+                                            </td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.tipo_pedido}</td>
+                                            <td className="px-4 py-4 font-medium text-gray-500">{pedido.valor_final}€</td>
+                                            <td className="px-4 py-4 text-xs font-bold text-red-500">Apagado</td>
+                                            <td className="px-4 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button 
+                                                        onClick={() => restaurarPedido(pedido.id)}
+                                                        className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors"
+                                                    >
+                                                        Restaurar
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setPedidoParaEliminarDefinitivo(pedido)}
+                                                        className="px-3 py-1.5 bg-gray-200 dark:bg-[#2A2A2A] text-gray-700 dark:text-gray-400 text-xs font-bold rounded-lg hover:bg-red-500 hover:text-white dark:hover:bg-red-500 transition-colors"
+                                                    >
+                                                        Eliminar
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )
+                            )}
+
                         </tbody>
                     </table>
                 </div>
@@ -209,6 +301,13 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                 onClose={() => setPedidoParaReverter(null)}
                 onSuccess={carregarPedidos}
                 pedido={pedidoParaReverter}
+            />
+
+            <ModalConfirmarEliminarDefinitivo
+                isOpen={pedidoParaEliminarDefinitivo !== null}
+                onClose={() => setPedidoParaEliminarDefinitivo(null)}
+                onSuccess={carregarPedidos}
+                pedido={pedidoParaEliminarDefinitivo}
             />
         </div>
     )

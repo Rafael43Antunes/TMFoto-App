@@ -25,6 +25,7 @@ const api = {
   updateTorneio: (dados: any) => ipcRenderer.invoke('update-torneio', dados),
   getTorneiosApagados: () => ipcRenderer.invoke('get-torneios-apagados'),
   restoreTorneio: (id: number) => ipcRenderer.invoke('restore-torneio', id),
+  hardDeleteTorneio: (id: number) => ipcRenderer.invoke('hard-delete-torneio', id),
 
   //Preços
   getPrecos: () => ipcRenderer.invoke('get-precos'),
@@ -37,9 +38,13 @@ const api = {
   updateEstadoPedido: (dados: any) => ipcRenderer.invoke('update-estado-pedido', dados),
   softDeletePedido: (id: number) => ipcRenderer.invoke('soft-delete-pedido', id),
   updatePedido: (dados: any) => ipcRenderer.invoke('update-pedido', dados),
+  getPedidosApagados: (torneioId: number) => ipcRenderer.invoke('get-pedidos-apagados', torneioId),
+  restorePedido: (id: number) => ipcRenderer.invoke('restore-pedido', id),
+  hardDeletePedido: (id: number) => ipcRenderer.invoke('hard-delete-pedido', id),
+  limparReciclagemAutomatica: () => ipcRenderer.invoke('limpar-reciclagem-automatica'),
 
 
-  importarTorneios: () => ipcRenderer.invoke('importar-torneios')
+  importarExcelTorneios: () => ipcRenderer.invoke('importar-excel-torneios')
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

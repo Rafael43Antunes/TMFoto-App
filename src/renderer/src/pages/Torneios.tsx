@@ -7,6 +7,7 @@ import { ModalEditarTorneio } from '../components/ModalEditarTorneio'
 import { ModalConfirmarApagar } from '../components/ModalConfirmarApagar'
 import { PedidosTorneio } from '../components/PedidosTorneio'
 import { ModalConfirmarRestauro } from '../components/ModalConfirmarRestauro'
+import { ModalConfirmarEliminarTorneioDefinitivo } from '../components/ModalConfirmarEliminarTorneioDefinitivo'
 
 export default function GestaoPedidos() {
     const [torneios, setTorneios] = useState<any[]>([])
@@ -22,6 +23,7 @@ export default function GestaoPedidos() {
     const [torneioParaEditar, setTorneioParaEditar] = useState<any>(null)
 
     const [torneioParaRestaurar, setTorneioParaRestaurar] = useState<any>(null)
+    const [torneioParaEliminarDefinitivo, setTorneioParaEliminarDefinitivo] = useState<any>(null)
 
     const carregarTorneios = async () => {
         try{
@@ -52,26 +54,32 @@ export default function GestaoPedidos() {
     }
 
     useEffect(() => {
-        carregarTorneios()
-        carregarApagados()
+        const iniciarPagina = async () => {
+            await (window as any).api.limparReciclagemAutomatica()
+            
+            carregarTorneios()
+            carregarApagados()
+        }
+        
+        iniciarPagina()
     }, [])
 
-    const importarDoExcel = async () => {
-        const confirmar = window.confirm("Isto vai importar todas as folhas do Excel como torneios no Arquivo Concluído. Queres avançar?")
-        if (!confirmar) return
+    const [isImporting, setIsImporting] = useState(false)
 
-        try {
-            const resultado = await (window as any).api.importarTorneios()
-            
-            if (resultado.sucesso) {
-                alert(`Sucesso! ${resultado.quantidade} torneios foram importados para o arquivo.`)
-                carregarTorneios() 
-            } else if (resultado.erro !== 'Operação cancelada') {
-                alert("Erro na importação: " + resultado.erro)
-            }
-        } catch (error) {
-            console.error("Erro geral:", error)
+    const importarExcelLegado = async () => {
+        setIsImporting(true)
+        
+        // Vamos ligar isto ao backend no próximo passo!
+        const resultado = await (window as any).api.importarExcelTorneios()
+
+        if (resultado?.sucesso) {
+            alert(`✅ Migração concluída! Foram importados os dados antigos.`)
+            carregarTorneios()
+        } else if (resultado?.erro !== 'Operação cancelada') {
+            alert("❌ Erro na migração: " + resultado?.erro)
         }
+        
+        setIsImporting(false)
     }
 
     if (torneioAberto) {
@@ -113,11 +121,12 @@ export default function GestaoPedidos() {
                     </button>
 
                     <button 
-                        onClick={importarDoExcel}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold transition-all shadow-md flex items-center gap-2 mr-3"
-                    >
-                        Importar Excel
-                    </button>
+                    onClick={importarExcelLegado}
+                    disabled={isImporting}
+                    className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 text-sm"
+                >
+                    {isImporting ? 'A migrar dados...' : 'Importar Excel'}
+                </button>
                 </div>
             </div>
 
@@ -236,9 +245,13 @@ export default function GestaoPedidos() {
                         torneiosApagados.map((torneio) => (
                             <div key={torneio.id} className="bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-5 flex flex-col relative opacity-80">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl">
-                                        <Trash2 className="w-6 h-6" />
-                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setTorneioParaEliminarDefinitivo(torneio); }} 
+                                        className="p-1.5 bg-gray-200 dark:bg-[#2A2A2D] text-gray-600 dark:text-gray-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-500 rounded-lg transition-colors"
+                                        title="Eliminar Definitivamente"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                     <button 
                                         onClick={async (e) => { 
                                             e.stopPropagation();
@@ -290,6 +303,13 @@ export default function GestaoPedidos() {
                 onClose={() => setTorneioParaRestaurar(null)} 
                 onSuccess={() => { carregarTorneios(); carregarApagados(); }} 
                 torneio={torneioParaRestaurar} 
+            />
+
+            <ModalConfirmarEliminarTorneioDefinitivo
+                isOpen={torneioParaEliminarDefinitivo !== null}
+                onClose={() => setTorneioParaEliminarDefinitivo(null)}
+                onSuccess={() => { carregarTorneios(); carregarApagados(); }}
+                torneio={torneioParaEliminarDefinitivo}
             />
 
         </div>

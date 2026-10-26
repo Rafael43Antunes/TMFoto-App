@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Calculator, AlertTriangle } from "lucide-react"
+import { X, Calculator, AlertTriangle, UserPlus } from "lucide-react"
 
 interface ModalNovoPedidoProps {
     isOpen: boolean
@@ -29,6 +29,8 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     const [showConfirmExit, setShowConfirmExit] = useState(false)
+
+    const [mostrarPromptAtleta, setMostrarPromptAtleta] = useState(false)
 
     // Carregar preços ao abrir a modal
     useEffect(() => {
@@ -80,18 +82,30 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     const handleFppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value
         setNumeroFpp(val)
-
-        console.log("A pesquisar pelo FPP:", val)
-        console.log("Quantos atletas temos na memória?", atletasDB.length)
-        if (atletasDB.length > 0) {
-             console.log("Exemplo do primeiro atleta da lista:", atletasDB[0])
-        }
         
         if (val.trim().length > 0) {
             // Procura um FPP exatamente igual
             const atletaEncontrado = atletasDB.find(a => String(a.numero_fpp) === String(val))
-            if (atletaEncontrado) 
+            
+            if (atletaEncontrado) {
                 preencherDadosAtleta(atletaEncontrado)
+            } else {
+                // Limpa os campos se não encontrar ninguém com este FPP (ex: passou de 78 para 781)
+                setNome('')
+                setClube('')
+                setAssociacao('')
+                setEscalao('')
+                setEmail('')
+                setTelemovel('')
+            }
+        } else {
+            // Limpa tudo se o utilizador apagar o campo do FPP com o Backspace
+            setNome('')
+            setClube('')
+            setAssociacao('')
+            setEscalao('')
+            setEmail('')
+            setTelemovel('')
         }
     }
 
@@ -137,21 +151,38 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
             return
         }
 
+        const atletaExiste = atletasDB.some(a => 
+            (numeroFpp && String(a.numero_fpp) === String(numeroFpp)) || 
+            (a.nome.toLowerCase() === nome.toLowerCase())
+        )
+
+        if (!atletaExiste) {
+            // Se não existe, abre a nossa modal de pergunta!
+            setMostrarPromptAtleta(true)
+            return
+        }
+
+        await executarGravacaoPedido(false)
+    }
+
+    const executarGravacaoPedido = async (guardarAtletaNaDB: boolean) => {
         setIsSubmitting(true)
 
-        // Usar valor manual se existir, senão usa o calculado
+        // Se o utilizador clicou em "Sim", grava primeiro o atleta na Base de Dados global
+        if (guardarAtletaNaDB) {
+            await (window as any).api.addAtleta({
+                numero_fpp: numeroFpp || null,
+                nome, clube, escalao, email, telemovel
+            })
+        }
+
         const valorFinal = valorManual !== '' ? Number(valorManual) : calcularTotalAutomatico()
 
         const dados = {
             torneio_id: torneioId,
             numero_fpp: numeroFpp || null,
-            nome,
-            clube,
-            associacao,
-            escalao,
-            email,
-            telemovel,
-            tipo_pedido: produtosSelecionados.join(' + '), // Junta os produtos tipo "Fotos + Pódio"
+            nome, clube, escalao, email, telemovel,
+            tipo_pedido: produtosSelecionados.join(' + '),
             podio: temPodio,
             valor_final: valorFinal
         }
@@ -159,6 +190,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
         const resultado = await (window as any).api.addPedido(dados)
 
         if (resultado.sucesso) {
+            setMostrarPromptAtleta(false)
             onSuccess()
             onClose()
         } else {
@@ -251,15 +283,6 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                                <input 
-                                    type="email" 
-                                    value={email} 
-                                    onChange={e => setEmail(e.target.value)} 
-                                    className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
-                                />
-                            </div>
-                            <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Telemóvel</label>
                                 <input 
                                     type="text" 
@@ -268,6 +291,10 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                                     className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" 
                                 />
                             </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
                         </div>
                     </div>
 
@@ -363,6 +390,39 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md"
                             >
                                 Sim, Sair
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+            {mostrarPromptAtleta && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+                        
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-500/10 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <UserPlus className="w-8 h-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Novo Atleta Detetado</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                O atleta <span className="font-bold text-gray-700 dark:text-gray-300">"{nome}"</span> não existe na tua base de dados. Queres guardá-lo para não teres de preencher os dados nos próximos torneios?
+                            </p>
+                        </div>
+
+                        <div className="p-4 bg-gray-50 dark:bg-[#1A1A1D] border-t border-gray-100 dark:border-[#2A2A2A] flex flex-col sm:flex-row gap-3">
+                            <button 
+                                onClick={() => executarGravacaoPedido(false)} 
+                                className="flex-1 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#2A2A2D] rounded-xl transition-colors"
+                            >
+                                Não, só guardar pedido
+                            </button>
+                            <button 
+                                onClick={() => executarGravacaoPedido(true)} 
+                                disabled={isSubmitting} 
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-md"
+                            >
+                                {isSubmitting ? 'A gravar...' : 'Sim, guardar atleta'}
                             </button>
                         </div>
 
