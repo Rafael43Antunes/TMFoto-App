@@ -44,7 +44,9 @@ const api = {
   limparReciclagemAutomatica: () => ipcRenderer.invoke('limpar-reciclagem-automatica'),
 
 
-  importarExcelTorneios: () => ipcRenderer.invoke('importar-excel-torneios')
+  importarExcelTorneios: () => ipcRenderer.invoke('importar-excel-torneios'),
+
+  getEstatisticas: () => ipcRenderer.invoke('get-estatisticas')
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

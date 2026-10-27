@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { FolderOpen, ChevronLeft, ChevronRight } from 'lucide-react'
+import { 
+  FolderOpen, 
+  ChevronLeft, 
+  ChevronRight, 
+  FolderTree, 
+  Database, 
+  Trophy, 
+  Send,
+  BarChart2
+} from 'lucide-react'
 
 export default function Home() {
   const [saudacao, setSaudacao] = useState('Olá')
@@ -76,10 +85,11 @@ export default function Home() {
         </h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-xl">
-          <MenuButton to="/pastas" title="Gerar Pastas" desc="A partir do PDF da ordem de saída" icon="📁" />
-          <MenuButton to="/basedados" title="Base de Dados" desc="Gerir atletas, clubes e associações" icon="🗄️" />
-          <MenuButton to="/torneios" title="Torneios" desc="Pedidos e folhas de Torneio" icon="🏆" />
-          <MenuButton to="/envios" title="Envios" desc="Estado das transferências" icon="🚀" />
+          <MenuButton to="/torneios" title="Torneios & Pedidos" desc="Controlo financeiro e folhas" icon={Trophy} cor="blue" />
+          <MenuButton to="/basedados" title="Base de Dados" desc="Gerir atletas globais e clubes" icon={Database} cor="emerald" />
+          <MenuButton to="/pastas" title="Gerar Pastas" desc="Extração automática do PDF" icon={FolderTree} cor="orange" />
+          <MenuButton to="/estatisticas" title="Estatísticas" desc="Análise financeira global" icon={BarChart2} cor="purple" />
+          <MenuButton to="/envios" title="Envios" desc="Estado das transferências" icon={Send} cor="rose" />
         </div>
       </div>
 
@@ -158,17 +168,28 @@ export default function Home() {
   )
 }
 
-function MenuButton({ to, title, desc, icon }: { to: string, title: string, desc: string, icon: string }) {
+function MenuButton({ to, title, desc, icon: Icon, cor }: { to: string, title: string, desc: string, icon: any, cor: 'blue' | 'emerald' | 'orange' | 'purple' | 'rose' }) {
+  
+  const cores = {
+    blue: "text-blue-500 bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20",
+    emerald: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
+    orange: "text-orange-500 bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20",
+    purple: "text-purple-500 bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20",
+    rose: "text-rose-500 bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20",
+  }
+
   return (
     <Link 
       to={to} 
-      className="group flex flex-col bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 p-6 rounded-2xl shadow-sm hover:shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1 relative overflow-hidden"
+      className="group flex flex-col bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#2A2A2A] hover:border-blue-500 dark:hover:border-blue-500 p-6 rounded-2xl shadow-sm hover:shadow-xl dark:shadow-none transition-all duration-300 hover:-translate-y-1 relative overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-900/20 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       
-      <span className="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left drop-shadow-sm z-10">{icon}</span>
-      <h3 className="font-bold text-xl text-slate-800 dark:text-white mb-2 z-10">{title}</h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed z-10">{desc}</p>
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-transform duration-300 group-hover:scale-110 mb-4 z-10 ${cores[cor]}`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      
+      <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2 z-10">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed z-10">{desc}</p>
     </Link>
   )
 }

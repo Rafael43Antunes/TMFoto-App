@@ -827,6 +827,35 @@ ipcMain.handle('importar-excel-torneios', async () => {
     }
 })
 
+// ===================== ESTATÍSTICAS ===========================================
+  ipcMain.handle('get-estatisticas', async () => {
+    return new Promise((resolve) => {
+      const query = `
+        SELECT
+          (SELECT COALESCE(SUM(valor_final), 0) FROM pedidos WHERE estado != 'apagado') as totalFaturado,
+          (SELECT COUNT(id) FROM pedidos WHERE estado != 'apagado') as totalPedidos,
+          (SELECT t.nome FROM torneios t JOIN pedidos p ON t.id = p.torneio_id WHERE p.estado != 'apagado' GROUP BY t.id ORDER BY SUM(p.valor_final) DESC LIMIT 1) as torneioTop,
+          (SELECT clube FROM pedidos WHERE estado != 'apagado' AND clube != '' AND clube IS NOT NULL GROUP BY clube ORDER BY COUNT(id) DESC LIMIT 1) as clubeTop
+      `
+      db.get(query, [], (err, row: any) => {
+        if (err) {
+          console.error('Erro nas estatísticas:', err)
+          resolve({ sucesso: false, erro: err.message })
+        } else {
+          resolve({
+            sucesso: true,
+            dados: {
+              totalFaturado: row?.totalFaturado?.toFixed(2) || '0.00',
+              totalPedidos: row?.totalPedidos || 0,
+              torneioTop: row?.torneioTop || 'Nenhum',
+              clubeTop: row?.clubeTop || 'Nenhum'
+            }
+          })
+        }
+      })
+    })
+  })
+
   //================================================================
   createWindow()
 

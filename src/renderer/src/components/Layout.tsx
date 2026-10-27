@@ -7,7 +7,7 @@ import {
   Trophy, 
   Menu, 
   X, 
-  // BarChart2, 
+  BarChart2, 
   // Send 
 } from 'lucide-react'
 
@@ -22,7 +22,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: '/torneios', icon: Trophy, label: 'Torneios & Pedidos' },
     { path: '/basedados', icon: Database, label: 'Base de Dados' },
     { path: '/pastas', icon: FolderTree, label: 'Gerador de Pastas' },
-    // { path: '/estatisticas', icon: BarChart2, label: 'Estatísticas' },
+    { path: '/estatisticas', icon: BarChart2, label: 'Estatísticas' },
     // { path: '/envios', icon: Send, label: 'Envio de Fotos' },
   ]
 
