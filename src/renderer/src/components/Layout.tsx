@@ -42,12 +42,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* 1. MENU LATERAL (SIDEBAR) */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-gray-100 dark:bg-[#121212] border-r border-slate-200/80 dark:border-[#2A2A2A]
+        w-64 bg-gray-100 dark:bg-[#121212] 
         transform transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex flex-col
       `}>
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-200/80 dark:border-[#2A2A2A] shrink-0">
+        <div className="h-20 flex items-center justify-between px-6 shrink-0">
           <h1 className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-500 dark:from-gray-100 dark:to-gray-400 select-none">
             TM FOTO
           </h1>
@@ -82,7 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden text-gray-800 dark:text-gray-200 transition-colors duration-300">
 
         {/* CABEÇALHO (Header) */}
-        <header className="w-full h-20 flex items-center justify-between px-4 lg:px-8 border-b border-slate-200/80 dark:border-[#2A2A2A] bg-gray-100/80 dark:bg-[#121212]/80 backdrop-blur-xl shrink-0 sticky top-0 z-30">
+        <header className="w-full h-20 flex items-center justify-between px-4 lg:px-8 bg-gray-100/80 dark:bg-[#121212]/80 backdrop-blur-xl shrink-0 sticky top-0 z-30">
           
           <div className="flex items-center gap-4 flex-1">
             <button
