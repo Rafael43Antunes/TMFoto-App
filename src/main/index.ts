@@ -7,6 +7,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { google } from 'googleapis';
 
 import * as xlsx from 'xlsx'
 
@@ -59,6 +60,49 @@ app.whenReady().then(() => {
   })
 
   const db = iniciarBaseDados()
+
+  // =================== Autenticação com a google api e respetivo teste =========================
+  const auth = new google.auth.GoogleAuth({
+    keyFile: './credentials/google-drive-key.json', 
+    scopes: ['https://www.googleapis.com/auth/drive.file'], 
+  });
+
+  const drive = google.drive({ version: 'v3', auth });
+
+  async function testarGoogleDrive() {
+    try {
+      console.log('A contactar os servidores da Google...');
+      
+      const resposta = await drive.files.create({
+        requestBody: {
+          name: 'Pasta de Teste TMFoto',
+          mimeType: 'application/vnd.google-apps.folder',
+        },
+        fields: 'id, webViewLink',
+      });
+
+      const pastaId = resposta.data.id;
+      if (!pastaId) throw new Error("ID da pasta não foi retornado.");
+      
+      console.log('SUCESSO! Pasta criada na Cloud com o ID:', pastaId);
+      
+      console.log('A configurar permissões de acesso público...');
+      await drive.permissions.create({
+        fileId: pastaId,
+        requestBody: {
+          role: 'reader', 
+          type: 'anyone',
+        },
+      });
+
+      console.log(' Permissões atualizadas com sucesso!');
+      console.log(' Link da pasta pronto a enviar ao cliente:', resposta.data.webViewLink);
+    } catch (erro) {
+      console.error(' Erro de Autenticação/Criação:', erro);
+    }
+  }
+
+  testarGoogleDrive();
 
   // ===================== BASE DE DADOS ATLETAS ===========================================
   ipcMain.handle('get-atletas', async () => {
