@@ -852,7 +852,7 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
 
       const whereP = where.replace(/estado/g, 'p.estado').replace(/torneio_id/g, 'p.torneio_id').replace(/data_criacao/g, 'p.data_criacao')
       const wherePTop = whereTorneioTop.replace(/estado/g, 'p.estado').replace(/torneio_id/g, 'p.torneio_id').replace(/data_criacao/g, 'p.data_criacao')
-      
+
       // Função auxiliar para correr queries e devolver promessas
       const lerSQL = (query: string): Promise<any[]> => {
           return new Promise((res, rej) => db.all(query, [], (err, rows) => err ? rej(err) : res(rows)))
@@ -864,6 +864,24 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
           const topClubes = await lerSQL(`SELECT clube as nome, COUNT(id) as pedidos, SUM(valor_final) as faturado FROM pedidos WHERE ${where} AND clube != '' AND clube IS NOT NULL GROUP BY clube ORDER BY pedidos DESC LIMIT 10`)
           const topAtletas = await lerSQL(`SELECT nome, COUNT(id) as pedidos, SUM(valor_final) as faturado FROM pedidos WHERE ${where} AND nome != '' AND nome IS NOT NULL GROUP BY nome ORDER BY faturado DESC LIMIT 10`)
 
+          const faturacaoMensal = await lerSQL(`
+              SELECT strftime('%m/%Y', data_criacao) as mes, SUM(valor_final) as total 
+              FROM pedidos 
+              WHERE ${where} 
+              GROUP BY strftime('%Y-%m', data_criacao) 
+              ORDER BY data_criacao ASC 
+              LIMIT 12
+          `)
+
+          const tiposPedido = await lerSQL(`
+              SELECT tipo_pedido as name, COUNT(id) as value 
+              FROM pedidos 
+              WHERE ${where} AND tipo_pedido != '' AND tipo_pedido IS NOT NULL 
+              GROUP BY tipo_pedido 
+              ORDER BY value DESC
+          `)
+
+
           resolve({
               sucesso: true,
               dados: {
@@ -871,7 +889,9 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
                   totalPedidos: totais[0]?.pedidos || 0,
                   topTorneios,
                   topClubes,
-                  topAtletas
+                  topAtletas,
+                  faturacaoMensal,
+                  tiposPedido
               }
           })
       } catch (err: any) {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, Users, Trophy, Euro, Package, UserStar, Filter, Eye, EyeOff, X } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts'
 
 export default function Estatisticas() {
     const [stats, setStats] = useState({
@@ -7,14 +8,18 @@ export default function Estatisticas() {
         totalPedidos: 0,
         topTorneios: [] as any[],
         topClubes: [] as any[],
-        topAtletas: [] as any[]
+        topAtletas: [] as any[],
+        faturacaoMensal: [] as any[],
+        tiposPedido: [] as any[]
     })
 
     const [filtros, setFiltros] = useState({ periodo: 'tudo' })
     
-    // Novos Estados
+   
     const [privacidade, setPrivacidade] = useState(false)
     const [modalAtivo, setModalAtivo] = useState<'torneios' | 'clubes' | 'atletas' | null>(null)
+
+    const CORES_PIE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899']
 
     useEffect(() => {
         const carregarStats = async () => {
@@ -179,10 +184,85 @@ export default function Estatisticas() {
                 </button>
             </div>
 
-            <div className="flex-1 bg-white dark:bg-[#1A1A1D] border border-gray-100 dark:border-[#2A2A2A] rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center">
-                <p className="text-gray-400 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" /> Gráficos de Evolução em construção...
-                </p>
+            {/* ZONA DOS GRAFICOS */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pb-10">
+                
+                {/* Gráfico 1: Evolução Faturação (Ocupa 2 colunas) */}
+                <div className="lg:col-span-2 bg-white dark:bg-[#1A1A1D] border border-gray-100 dark:border-[#2A2A2A] rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6">Evolução Mensal da Faturação</h3>
+                    <div className="h-64 w-full">
+                        {stats.faturacaoMensal.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={stats.faturacaoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="corFaturacao" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" opacity={0.2} />
+                                    <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} tickFormatter={(val) => `€${val}`} />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#1A1A1D', borderColor: '#333', color: '#fff', borderRadius: '12px' }}
+                                        formatter={(value: any) => [`€ ${formatarEuro(value)}`, 'Faturado']}
+                                        labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
+                                    />
+                                    <Area type="monotone" dataKey="total" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#corFaturacao)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400 text-sm">Dados insuficientes para gerar gráfico.</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Gráfico 2: Tipos de Pedido (Ocupa 1 coluna) */}
+                <div className="bg-white dark:bg-[#1A1A1D] border border-gray-100 dark:border-[#2A2A2A] rounded-2xl p-6 shadow-sm flex flex-col">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Tipos de Pedido</h3>
+                    <p className="text-xs text-gray-500 mb-4">Volume total por formato</p>
+                    
+                    <div className="flex-1 min-h-[200px] w-full relative">
+                        {stats.tiposPedido.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={stats.tiposPedido}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {stats.tiposPedido.map((_, index) => (
+                                            <Cell key={`cell-${index}`} fill={CORES_PIE[index % CORES_PIE.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#1A1A1D', borderColor: '#333', color: '#fff', borderRadius: '12px' }}
+                                        formatter={(value: any) => [`${value} pedidos`, 'Quantidade']}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400 text-sm">Sem dados.</div>
+                        )}
+                    </div>
+                    
+                    {/* Legenda Customizada do Gráfico Circular */}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                        {stats.tiposPedido.map((tipo, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: CORES_PIE[idx % CORES_PIE.length] }}></div>
+                                <span className="truncate" title={tipo.name}>{tipo.name}</span>
+                                <span className="ml-auto font-bold opacity-50">{tipo.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
             </div>
 
         </div>
