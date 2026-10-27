@@ -22,6 +22,8 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
     const [pedidosApagados, setPedidosApagados] = useState<any[]>([])
     const [tabAtiva, setTabAtiva] = useState<'ativos' | 'apagados'>('ativos')
 
+    const [pesquisa, setPesquisa] = useState('')
+
     useEffect(() => {
         carregarPedidos()
     }, [torneio.id])
@@ -81,7 +83,7 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
     
 
     return (
-        <div className="h-full min-h-[85vh] flex flex-col max-w-7xl mx-auto w-full animate-fade-in pb-8 pt-6">
+        <div className="h-full min-h-[85vh] flex flex-col max-w-7xl mx-auto w-full animate-fade-in px-8 lg:px-12 pt-6 pb-8">
             
             {/* Cabeçalho de Navegação */}
             <div className="flex items-center gap-4 mb-8">
@@ -107,6 +109,8 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                         <input 
                             type="text"
                             placeholder="Procurar atleta..."
+                            value={pesquisa}
+                            onChange={(e) => setPesquisa(e.target.value)}
                             className="pl-9 pr-4 py-2.5 bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white w-64"
                         />
                     </div>
@@ -136,8 +140,8 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
             </div>
 
             {/* Tabela de Pedidos */}
-            <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl overflow-hidden shadow-sm flex-1">
-                <div className="overflow-x-auto">
+            <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-2xl shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="overflow-auto flex-1">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-[#1A1A1D] text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-[#333]">
                             <tr>
@@ -162,7 +166,13 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                                         </td>
                                     </tr>
                                 ) : (
-                                    pedidos.map((pedido) => (
+                                    pedidos
+                                        .filter(pedido => 
+                                            (pedido.nome || '').toLowerCase().includes(pesquisa.toLowerCase()) || 
+                                            String(pedido.numero_fpp || '').includes(pesquisa) ||
+                                            (pedido.clube || '').toLowerCase().includes(pesquisa.toLowerCase())
+                                        )
+                                        .map((pedido) => (
                                         <tr key={pedido.id} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1D]/50 transition-colors">
                                             <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
                                             <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{pedido.nome}</td>

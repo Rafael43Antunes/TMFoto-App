@@ -828,31 +828,55 @@ ipcMain.handle('importar-excel-torneios', async () => {
 })
 
 // ===================== ESTATÍSTICAS ===========================================
-  ipcMain.handle('get-estatisticas', async () => {
-    return new Promise((resolve) => {
-      const query = `
-        SELECT
-          (SELECT COALESCE(SUM(valor_final), 0) FROM pedidos WHERE estado != 'apagado') as totalFaturado,
-          (SELECT COUNT(id) FROM pedidos WHERE estado != 'apagado') as totalPedidos,
-          (SELECT t.nome FROM torneios t JOIN pedidos p ON t.id = p.torneio_id WHERE p.estado != 'apagado' GROUP BY t.id ORDER BY SUM(p.valor_final) DESC LIMIT 1) as torneioTop,
-          (SELECT clube FROM pedidos WHERE estado != 'apagado' AND clube != '' AND clube IS NOT NULL GROUP BY clube ORDER BY COUNT(id) DESC LIMIT 1) as clubeTop
-      `
-      db.get(query, [], (err, row: any) => {
-        if (err) {
-          console.error('Erro nas estatísticas:', err)
-          resolve({ sucesso: false, erro: err.message })
-        } else {
+ipcMain.handle('get-estatisticas', async (event, filtros) => {
+    return new Promise(async (resolve) => {
+      let where = "estado != 'apagado'"
+      let whereTorneioTop = "estado != 'apagado'"
+
+      if (filtros?.torneioId && filtros.torneioId !== 'todos') {
+          const tid = parseInt(filtros.torneioId)
+          if (!isNaN(tid))
+             where += ` AND torneio_id = ${tid}`
+      }
+
+      if (filtros?.periodo && filtros.periodo !== 'tudo') {
+          const hoje = new Date()
+          if (filtros.periodo === '1mes') hoje.setMonth(hoje.getMonth() - 1)
+          else if (filtros.periodo === '6meses') hoje.setMonth(hoje.getMonth() - 6)
+          else if (filtros.periodo === 'ano') hoje.setFullYear(hoje.getFullYear() - 1)
+
+          const dataIso = hoje.toISOString()  
+          where += ` AND data_criacao >= '${hoje.toISOString()}'`
+          whereTorneioTop += ` AND data_criacao >= '${dataIso}'`
+      }
+
+      const whereP = where.replace(/estado/g, 'p.estado').replace(/torneio_id/g, 'p.torneio_id').replace(/data_criacao/g, 'p.data_criacao')
+      const wherePTop = whereTorneioTop.replace(/estado/g, 'p.estado').replace(/torneio_id/g, 'p.torneio_id').replace(/data_criacao/g, 'p.data_criacao')
+      
+      // Função auxiliar para correr queries e devolver promessas
+      const lerSQL = (query: string): Promise<any[]> => {
+          return new Promise((res, rej) => db.all(query, [], (err, rows) => err ? rej(err) : res(rows)))
+      }
+
+      try {
+          const totais = await lerSQL(`SELECT COALESCE(SUM(valor_final), 0) as faturado, COUNT(id) as pedidos FROM pedidos WHERE ${where}`)
+          const topTorneios = await lerSQL(`SELECT t.nome, SUM(p.valor_final) as faturado, COUNT(p.id) as pedidos FROM torneios t JOIN pedidos p ON t.id = p.torneio_id WHERE ${whereP} GROUP BY t.id ORDER BY faturado DESC LIMIT 10`)
+          const topClubes = await lerSQL(`SELECT clube as nome, COUNT(id) as pedidos, SUM(valor_final) as faturado FROM pedidos WHERE ${where} AND clube != '' AND clube IS NOT NULL GROUP BY clube ORDER BY pedidos DESC LIMIT 10`)
+          const topAtletas = await lerSQL(`SELECT nome, COUNT(id) as pedidos, SUM(valor_final) as faturado FROM pedidos WHERE ${where} AND nome != '' AND nome IS NOT NULL GROUP BY nome ORDER BY faturado DESC LIMIT 10`)
+
           resolve({
-            sucesso: true,
-            dados: {
-              totalFaturado: row?.totalFaturado?.toFixed(2) || '0.00',
-              totalPedidos: row?.totalPedidos || 0,
-              torneioTop: row?.torneioTop || 'Nenhum',
-              clubeTop: row?.clubeTop || 'Nenhum'
-            }
+              sucesso: true,
+              dados: {
+                  totalFaturado: totais[0]?.faturado || 0,
+                  totalPedidos: totais[0]?.pedidos || 0,
+                  topTorneios,
+                  topClubes,
+                  topAtletas
+              }
           })
-        }
-      })
+      } catch (err: any) {
+          resolve({ sucesso: false, erro: err.message })
+      }
     })
   })
 

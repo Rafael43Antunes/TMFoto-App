@@ -25,6 +25,10 @@ export default function GestaoPedidos() {
     const [torneioParaRestaurar, setTorneioParaRestaurar] = useState<any>(null)
     const [torneioParaEliminarDefinitivo, setTorneioParaEliminarDefinitivo] = useState<any>(null)
 
+    const formatarEuro = (valor: number) => {
+        return new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valor)
+    }
+
     const carregarTorneios = async () => {
         try{
             const resultado = await (window as any).api.getTorneios()
@@ -83,7 +87,15 @@ export default function GestaoPedidos() {
     }
 
     if (torneioAberto) {
-        return <PedidosTorneio torneio={torneioAberto} onBack={() => setTorneioAberto(null)} />
+        return (
+            <PedidosTorneio 
+                torneio={torneioAberto} 
+                onBack={() => { 
+                    setTorneioAberto(null); 
+                    carregarTorneios(); 
+                }} 
+            />
+        )
     }
 
     return (
@@ -226,7 +238,7 @@ export default function GestaoPedidos() {
                                         <p className="text-xs text-gray-500 mb-0.5">Faturado</p>
                                         <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                                             <Euro className="w-4 h-4" /> 
-                                            {mostrarFaturacao ? (torneio.faturado || '0.00') : '---'}
+                                            {mostrarFaturacao ? formatarEuro(torneio.faturado || 0) : '---'}
                                         </p>
                                     </div>
                                 </div>
