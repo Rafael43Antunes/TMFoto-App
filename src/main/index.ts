@@ -950,7 +950,7 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
           p.id, p.numero_fpp, p.nome, p.email, p.telemovel, 
           p.link_drive, p.email_enviado, p.whatsapp_enviado, 
           p.estado, p.data_criacao, p.data_envio,
-          p.caminho_pasta_atleta, p.torneio_id, 
+          p.caminho_pasta_atleta, p.torneio_id, p.erro_processamento, 
           t.nome as torneio_nome
         FROM pedidos p
         JOIN torneios t ON p.torneio_id = t.id
@@ -972,7 +972,7 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
           p.id, p.numero_fpp, p.nome, p.email, p.telemovel, 
           p.link_drive, p.email_enviado, p.whatsapp_enviado, 
           p.estado, p.data_criacao, p.data_envio,
-          p.caminho_pasta_atleta, p.torneio_id,
+          p.caminho_pasta_atleta, p.torneio_id, p.erro_processamento,
           t.nome as torneio_nome
         FROM pedidos p
         JOIN torneios t ON p.torneio_id = t.id

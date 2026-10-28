@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { processarUploadAtleta } from './googleDrive';
+import { enviarEmailComLink } from './email';
 
 let isProcessando = false;
 
@@ -16,15 +17,13 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
     try {
       const query = `
         SELECT 
-          p.id, p.nome, p.caminho_pasta_atleta, p.tipo_pedido,
+          p.id, p.nome, p.email, p.caminho_pasta_atleta, p.tipo_pedido,
+          p.link_drive, p.email_enviado, p.whatsapp_enviado, p.erro_processamento,
           t.caminho_pasta as torneio_caminho,
           t.nome as torneio_nome
         FROM pedidos p
         JOIN torneios t ON p.torneio_id = t.id
         WHERE p.estado = 'pendente' 
-          AND p.link_drive IS NULL 
-          AND p.caminho_pasta_atleta IS NOT NULL 
-          AND p.caminho_pasta_atleta != '' 
           AND LOWER(p.tipo_pedido) LIKE '%email%'
       `;
 
@@ -46,50 +45,82 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
       // 2. PROCESSAR CADA PEDIDO SEQUENCIALMENTE
       for (const pedido of pedidos) {
         try {
-          const caminhoLocalCompleto = path.join(pedido.torneio_caminho, pedido.caminho_pasta_atleta);
-          const nomePastaCloud = `${pedido.torneio_nome} - ${pedido.nome}`;
+          let linkDriveAtual = pedido.link_drive;
 
-          console.log(`[Trator] Upload para o pedido ID ${pedido.id} (${pedido.nome})...`);
-
-          const resultadoUpload = await processarUploadAtleta(caminhoLocalCompleto, nomePastaCloud);
-
-          if (resultadoUpload.sucesso) {
-            const dataEnvio = new Date().toISOString();
+          // ETAPA 1: GOOGLE DRIVE
+          if (!linkDriveAtual) {
+            if (!pedido.caminho_pasta_atleta) continue; // Fica à espera que o caminho seja corrigido
             
-    
-            const updateQuery = `
-              UPDATE pedidos 
-              SET link_drive = ?, drive_folder_id = ?, data_envio = ?
-              WHERE id = ?
-            `;
+            const caminhoLocalCompleto = path.join(pedido.torneio_caminho, pedido.caminho_pasta_atleta);
+            const nomePastaCloud = `${pedido.torneio_nome} - ${pedido.nome}`;
             
-            //3 ATUALIZAR A BASE DE DADOS (ESPERA PELA CONFIRMAÇÃO)
-            await new Promise<void>((resolveUpdate, rejectUpdate) => {
-              db.run(updateQuery, [resultadoUpload.link, resultadoUpload.idPasta, dataEnvio, pedido.id], (updateErr) => {
-                if (updateErr) {
-                  console.error(`[Trator] Erro a atualizar BD (ID ${pedido.id}):`, updateErr.message);
-                  rejectUpdate(updateErr);
-                } else {
-                  console.log(`[Trator] Sucesso! Link guardado (ID ${pedido.id}).`);
-                  resolveUpdate();
-                }
+            console.log(`[Trator] FASE 1: Upload para o pedido ID ${pedido.id} (${pedido.nome})...`);
+            const resultadoUpload = await processarUploadAtleta(caminhoLocalCompleto, nomePastaCloud);
+
+            if (resultadoUpload.sucesso) {
+              linkDriveAtual = resultadoUpload.link;
+              const dataEnvio = new Date().toISOString();
+              
+              await new Promise<void>((resolve, reject) => {
+                db.run(`UPDATE pedidos SET link_drive = ?, drive_folder_id = ?, data_envio = ?, erro_processamento = NULL WHERE id = ?`, 
+                  [resultadoUpload.link, resultadoUpload.idPasta, dataEnvio, pedido.id], 
+                  (err) => err ? reject(err) : resolve()
+                );
               });
-            });
-
-          } else {
-            console.error(`[Trator] Falha no Drive (ID ${pedido.id}):`, resultadoUpload.erro);
+              console.log(`[Trator] FASE 1 OK! Link guardado.`);
+            } else {
+             const msgErro = typeof resultadoUpload.erro === 'string' ? resultadoUpload.erro : 'Erro ao carregar ficheiros para o Google Drive.';
+              await new Promise<void>((resolve) => {
+                db.run(`UPDATE pedidos SET erro_processamento = ? WHERE id = ?`, [`Erro Drive: ${msgErro}`, pedido.id], () => resolve());
+              });
+              continue; // Se falhou a Cloud, não avança para o Email neste ciclo
+            }
           }
 
-        } catch (erroGeral) {
-          console.error(`[Trator] Erro grave no pedido ID ${pedido.id}:`, erroGeral);
+          // ETAPA 2: EMAIL
+          let emailEnviadoAtual = pedido.email_enviado;
+          
+          if (linkDriveAtual && !emailEnviadoAtual) {
+            if (!pedido.email) {
+              console.log(`[Trator] FASE 2: Pedido ID ${pedido.id} não tem email definido! À espera...`);
+            } else {
+              console.log(`[Trator] FASE 2: A enviar Email para ${pedido.email}...`);
+              const resultadoEmail = await enviarEmailComLink(pedido.email, pedido.nome, pedido.torneio_nome, linkDriveAtual);
+
+              if (resultadoEmail.sucesso) {
+                emailEnviadoAtual = 1;
+                await new Promise<void>((resolve, reject) => {
+                  db.run(`UPDATE pedidos SET email_enviado = 1, erro_processamento = NULL WHERE id = ?`, [pedido.id], 
+                    (err) => err ? reject(err) : resolve()
+                  );
+                });
+                console.log(`[Trator] FASE 2 OK! Email disparado.`);
+              } else {
+                 const msgErro = resultadoEmail.erro || 'Falha na autenticação ou servidor de email.';
+                 await new Promise<void>((resolve) => {
+                   db.run(`UPDATE pedidos SET erro_processamento = ? WHERE id = ?`, [`Erro Email: ${msgErro}`, pedido.id], () => resolve());
+                 });
+                 continue;
+              }
+            }
+          }
+
+          // ETAPA 3: WHATSAPP 
+          if (emailEnviadoAtual && !pedido.whatsapp_enviado) {
+             // ...
+          }
+
+        } catch (erroPedido: any) {
+          await new Promise<void>((resolve) => {
+            db.run(`UPDATE pedidos SET erro_processamento = ? WHERE id = ?`, [`Erro Crítico: ${erroPedido.message}`, pedido.id], () => resolve());
+          });
         }
       }
 
     } catch (erroQuery) {
       console.error('[Trator] Erro na query principal:', erroQuery);
     } finally {
-      //4 DESTRANCAR A PORTA (Aconteça o que acontecer, com sucesso ou erro, a porta é destrancada no fim)
-      isProcessando = false;
+      isProcessando = false; // Destranca a porta no fim do ciclo
     }
 
   }, 10 * 1000); 

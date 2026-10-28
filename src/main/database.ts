@@ -92,7 +92,8 @@ export function iniciarBaseDados() {
                     "ALTER TABLE pedidos ADD COLUMN caminho_pasta_atleta TEXT;",
                     "ALTER TABLE pedidos ADD COLUMN link_drive TEXT;",
                     "ALTER TABLE pedidos ADD COLUMN drive_folder_id TEXT;",
-                    "ALTER TABLE pedidos ADD COLUMN data_envio TEXT;"
+                    "ALTER TABLE pedidos ADD COLUMN data_envio TEXT;",
+                    "ALTER TABLE pedidos ADD COLUMN erro_processamento TEXT;"
                 ];
 
                 adicionarColunas.forEach(query => {
