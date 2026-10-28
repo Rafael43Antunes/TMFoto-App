@@ -88,6 +88,22 @@ export function iniciarBaseDados() {
                     ) 
                 `, tratarErro('pedidos'))
 
+                const adicionarColunas = [
+                    "ALTER TABLE pedidos ADD COLUMN caminho_pasta_atleta TEXT;",
+                    "ALTER TABLE pedidos ADD COLUMN link_drive TEXT;",
+                    "ALTER TABLE pedidos ADD COLUMN drive_folder_id TEXT;",
+                    "ALTER TABLE pedidos ADD COLUMN data_envio TEXT;"
+                ];
+
+                adicionarColunas.forEach(query => {
+                    db.run(query, (err) => {
+                        // É normal dar erro se a coluna já existir, por isso ignoramos silenciosamente
+                        if (err && !err.message.includes("duplicate column name")) {
+                        console.error("Erro ao adicionar coluna:", err.message);
+                        }
+                    });
+                });
+
                 db?.run(`
                     CREATE TABLE IF NOT EXISTS precos(
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
