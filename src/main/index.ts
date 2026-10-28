@@ -90,9 +90,25 @@ app.whenReady().then(() => {
   ipcMain.handle('add-atleta', (_, atleta) => {
     return new Promise((resolve) => {
       const query = `INSERT INTO atletas (numero_fpp, nome, clube, associacao, email, telemovel) VALUES (?, ?, ?, ?, ?, ?)`
-      db.run(query, [atleta.numero_fpp, atleta.nome, atleta.clube, atleta.associacao, atleta.email, atleta.telemovel], function (err) {
-        if (err) resolve({ success: false, message: err.message })
-        else resolve({ success: true })
+
+      const clubeFinal = atleta.clube && atleta.clube.trim() !== '' ? atleta.clube.trim() : ''
+      const assocFinal = atleta.associacao && atleta.associacao.trim() !== '' ? atleta.associacao.trim() : ''
+
+      db.run(query, [
+        atleta.numero_fpp || null, 
+        atleta.nome, 
+        clubeFinal, 
+        assocFinal, 
+        atleta.email || '', 
+        atleta.telemovel || ''
+      ], function (err) {
+        if (err) {
+          console.error('[ERRO] Falha ao adicionar atleta:', err.message)
+          resolve({ success: false, message: err.message })
+        } else {
+          console.log('[SUCESSO] Novo atleta gravado na DB global!')
+          resolve({ success: true })
+        }
       })
     })
   })
@@ -100,9 +116,24 @@ app.whenReady().then(() => {
   ipcMain.handle('update-atleta', (_, atleta) => {
     return new Promise((resolve) => {
       const query = `UPDATE atletas SET nome = ?, clube = ?, associacao = ?, email = ?, telemovel = ? WHERE numero_fpp = ?`
-      db.run(query, [atleta.nome, atleta.clube, atleta.associacao, atleta.email, atleta.telemovel, atleta.numero_fpp], function (err) {
-        if (err) resolve({ success: false, message: err.message })
-        else resolve({ success: true })
+
+      const clubeFinal = atleta.clube && atleta.clube.trim() !== '' ? atleta.clube.trim() : ''
+      const assocFinal = atleta.associacao && atleta.associacao.trim() !== '' ? atleta.associacao.trim() : ''
+
+      db.run(query, [
+        atleta.nome, 
+        clubeFinal, 
+        assocFinal, 
+        atleta.email || '', 
+        atleta.telemovel || '', 
+        atleta.numero_fpp
+      ], function (err) {
+        if (err) {
+          console.error('[ERRO] Falha ao atualizar atleta:', err.message)
+          resolve({ success: false, message: err.message })
+        } else {
+          resolve({ success: true })
+        }
       })
     })
   })
