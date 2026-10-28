@@ -96,7 +96,7 @@ export function iniciarBaseDados() {
                 ];
 
                 adicionarColunas.forEach(query => {
-                    db.run(query, (err) => {
+                    db?.run(query, (err) => {
                         // É normal dar erro se a coluna já existir, por isso ignoramos silenciosamente
                         if (err && !err.message.includes("duplicate column name")) {
                         console.error("Erro ao adicionar coluna:", err.message);
