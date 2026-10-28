@@ -182,7 +182,7 @@ export default function Envios() {
                                     
                                     {/* A Linha Colorida de Progresso */}
                                     <div className={`absolute left-0 top-0 h-full rounded-full transition-all duration-1000 ease-out ${envioSelecionado.estado === 'concluido' || envioSelecionado.whatsapp_enviado ? 'w-full bg-emerald-500' : envioSelecionado.email_enviado ? 'w-1/2 bg-blue-500' : 'w-0'}`}></div>
-                                </div>
+                                </div>  
                                 {/* Step 1: Cloud */}
                                 <div className="relative z-10 flex flex-col items-center gap-3 bg-white dark:bg-[#151518] px-4">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-colors ${envioSelecionado.link_drive ? 'border-emerald-500 bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10' : !envioSelecionado.caminho_pasta_atleta ? 'border-red-500 bg-red-50 text-red-500 animate-pulse' : 'border-blue-500 bg-blue-50 text-blue-500'}`}>
