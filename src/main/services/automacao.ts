@@ -5,7 +5,7 @@ import { processarUploadAtleta } from './googleDrive';
 let isProcessando = false;
 
 export function iniciarTratorUploads(db: sqlite3.Database) {
-  console.log('[Trator] Sistema de automação iniciado! À espera de ordens...');
+  console.log('[Trator] Sistema de automacao iniciado! A espera de ordens...');
 
   setInterval(async () => {
     // Se ainda estiver a processar o ciclo anterior, ignora este aviso e espera.

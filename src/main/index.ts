@@ -555,12 +555,13 @@ app.whenReady().then(() => {
   ipcMain.handle('add-pedido', async (event, dados) => {
     return new Promise((resolve) => {
       const { 
-        torneio_id, numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio, valor_final,
-        caminho_pasta_atleta
-      } = dados
+      torneio_id, numero_fpp, nome, clube, associacao, 
+      email, telemovel, escalao, tipo_pedido, podio, valor_final,
+      caminho_pasta_atleta 
+    } = dados
       
       const data_criacao = new Date().toISOString()
+      const associacaoFinal = associacao && associacao.trim() !== '' ? associacao : null
 
       const query = `
         INSERT INTO pedidos (
@@ -573,7 +574,7 @@ app.whenReady().then(() => {
       // O ternário (podio ? 1 : 0) converte o boolean do React para número do SQLite
       const valores = [
         torneio_id, numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, data_criacao
+        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, data_criacao, caminho_pasta_atleta || null
       ]
 
       db.run(query, valores, function(err) {
@@ -911,36 +912,46 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
 
   // =================== ENVIOSSSS ============================
 
-  ipcMain.handle('get-envios-globais', async () => {
+  ipcMain.handle('get-envios-pendentes', async () => {
     return new Promise((resolve) => {
       const query = `
         SELECT 
-          p.id, 
-          p.numero_fpp, 
-          p.nome, 
-          p.email, 
-          p.telemovel, 
-          p.link_drive, 
-          p.email_enviado, 
-          p.whatsapp_enviado, 
-          p.estado, 
-          p.data_criacao, 
-          p.data_envio,
+          p.id, p.numero_fpp, p.nome, p.email, p.telemovel, 
+          p.link_drive, p.email_enviado, p.whatsapp_enviado, 
+          p.estado, p.data_criacao, p.data_envio,
+          p.caminho_pasta_atleta, p.torneio_id, 
           t.nome as torneio_nome
         FROM pedidos p
         JOIN torneios t ON p.torneio_id = t.id
-        WHERE p.estado != 'apagado' 
-          AND LOWER(p.tipo_pedido) LIKE '%email%' -- Apanha pedidos que contenham a palavra email
+        WHERE p.estado = 'pendente' 
+          AND LOWER(p.tipo_pedido) LIKE '%email%' 
         ORDER BY p.data_criacao DESC
       `
-      
       db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('Erro ao ler envios globais:', err)
-          resolve({ sucesso: false, erro: err.message, dados: [] })
-        } else {
-          resolve({ sucesso: true, dados: rows })
-        }
+        if (err) resolve({ sucesso: false, erro: err.message, dados: [] })
+        else resolve({ sucesso: true, dados: rows })
+      })
+    })
+  })
+
+  ipcMain.handle('get-envios-concluidos', async () => {
+    return new Promise((resolve) => {
+      const query = `
+        SELECT 
+          p.id, p.numero_fpp, p.nome, p.email, p.telemovel, 
+          p.link_drive, p.email_enviado, p.whatsapp_enviado, 
+          p.estado, p.data_criacao, p.data_envio,
+          p.caminho_pasta_atleta, p.torneio_id,
+          t.nome as torneio_nome
+        FROM pedidos p
+        JOIN torneios t ON p.torneio_id = t.id
+        WHERE p.estado = 'concluido' 
+          AND LOWER(p.tipo_pedido) LIKE '%email%' 
+        ORDER BY p.data_criacao DESC
+      `
+      db.all(query, [], (err, rows) => {
+        if (err) resolve({ sucesso: false, erro: err.message, dados: [] })
+        else resolve({ sucesso: true, dados: rows })
       })
     })
   })
