@@ -104,6 +104,20 @@ export function iniciarBaseDados() {
                     });
                 });
 
+                const adicionarColunasComunicacao = [
+                    "ALTER TABLE pedidos ADD COLUMN email_enviado INTEGER DEFAULT 0;",
+                    "ALTER TABLE pedidos ADD COLUMN whatsapp_enviado INTEGER DEFAULT 0;"
+                ];
+
+                adicionarColunasComunicacao.forEach(query => {
+                    db?.run(query, (err) => {
+                        // Ignora silenciosamente se as colunas já existirem
+                        if (err && !err.message.includes("duplicate column name")) {
+                            console.error("Erro ao adicionar colunas de comunicação:", err.message);
+                        }
+                    });
+                });
+
                 db?.run(`
                     CREATE TABLE IF NOT EXISTS precos(
                         id INTEGER PRIMARY KEY AUTOINCREMENT,

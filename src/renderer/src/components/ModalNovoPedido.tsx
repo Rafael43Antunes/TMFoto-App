@@ -17,6 +17,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     const [escalao, setEscalao] = useState('')
     const [email, setEmail] = useState('')
     const [telemovel, setTelemovel] = useState('')
+    const [caminhoPasta, setCaminhoPasta] = useState('')
     const [temPodio, setTemPodio] = useState(false)
 
     // Gestão de Preços e Produtos
@@ -41,7 +42,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
             // Limpar formulário
             setNome(''); setNumeroFpp(''); setClube(''); setAssociacao('');
             setEscalao(''); setEmail(''); setTelemovel(''); setTemPodio(false);
-            setProdutosSelecionados([]); setValorManual('');
+            setProdutosSelecionados([]); setValorManual(''); setCaminhoPasta('');
         }
     }, [isOpen])
 
@@ -184,7 +185,8 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
             nome, clube, escalao, email, telemovel,
             tipo_pedido: produtosSelecionados.join(' + '),
             podio: temPodio,
-            valor_final: valorFinal
+            valor_final: valorFinal,
+            caminho_pasta_atleta: caminhoPasta
         }
 
         const resultado = await (window as any).api.addPedido(dados)
@@ -295,6 +297,16 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white" />
+                        </div>
+                        <div className="pt-2">
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Caminho da Pasta do Atleta (Ex: \01 Iniciacao\05 Rafa)</label>
+                            <input 
+                                type="text" 
+                                value={caminhoPasta} 
+                                onChange={e => setCaminhoPasta(e.target.value)} 
+                                placeholder="\01 Iniciacao\05 Rafa"
+                                className="w-full bg-white dark:bg-[#151518] border border-dashed border-gray-300 dark:border-[#444] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white font-mono" 
+                            />
                         </div>
                     </div>
 
