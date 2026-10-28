@@ -8,7 +8,7 @@ import {
   Menu, 
   X, 
   BarChart2, 
-  // Send 
+  Send 
 } from 'lucide-react'
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: '/basedados', icon: Database, label: 'Base de Dados' },
     { path: '/pastas', icon: FolderTree, label: 'Gerador de Pastas' },
     { path: '/estatisticas', icon: BarChart2, label: 'Estatísticas' },
-    // { path: '/envios', icon: Send, label: 'Envio de Fotos' },
+    { path: '/envios', icon: Send, label: 'Envio de Fotos' },
   ]
 
   return (
@@ -119,7 +119,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         </header>
 
-        {/* ONDE RENDERIZAM AS PÁGINAS */}
         <main className="flex-1 overflow-y-auto relative w-full">
           {children}
         </main>

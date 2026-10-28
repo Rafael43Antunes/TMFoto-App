@@ -6,7 +6,7 @@ import Home from './pages/Home'
 import BaseDados from './pages/BaseDados'
 import Pastas from './pages/Pastas'
 import Torneios from './pages/Torneios'
-//import Envios from './pages/Envios'
+import Envios from './pages/Envios'
 import Estatisticas from './pages/Estatisticas'
 
 
@@ -19,7 +19,7 @@ export default function App() {
           <Route path="/basedados" element={<BaseDados />} />
           <Route path="/pastas" element={<Pastas />} /> 
           <Route path="/torneios" element={<Torneios />} /> 
-          {/*<Route path="/envios" element={<Envios />} /> */}
+          <Route path="/envios" element={<Envios />} />
           <Route path="/estatisticas" element={<Estatisticas />} /> 
         </Routes>
       </Layout>

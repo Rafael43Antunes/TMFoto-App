@@ -5,91 +5,92 @@ import { processarUploadAtleta } from './googleDrive';
 let isProcessando = false;
 
 export function iniciarTratorUploads(db: sqlite3.Database) {
-  console.log('Trator de Automação iniciado! À espera de ordens...');
+  console.log('[Trator] Sistema de automação iniciado! À espera de ordens...');
 
-  // O setInterval faz o código correr repetidamente (ex: a cada 1 minuto = 60000ms)
   setInterval(async () => {
+    // Se ainda estiver a processar o ciclo anterior, ignora este aviso e espera.
     if (isProcessando) return; 
 
-    isProcessando = true;
+    isProcessando = true; // Tranca a porta!
 
-    // 1. Procurar pedidos pendentes do tipo 'email' (juntando os dados do torneio)
-    const query = `
-      SELECT 
-        p.id, p.nome, p.caminho_pasta_atleta, p.tipo_pedido,
-        t.caminho_pasta as torneio_caminho,
-        t.nome as torneio_nome
-      FROM pedidos p
-      JOIN torneios t ON p.torneio_id = t.id
-      WHERE p.estado = 'pendente' 
-        AND p.link_drive IS NULL 
-        AND p.caminho_pasta_atleta IS NOT NULL 
-        AND p.caminho_pasta_atleta != '' 
-        AND LOWER(p.tipo_pedido) LIKE '%email%'
-    `;
+    try {
+      const query = `
+        SELECT 
+          p.id, p.nome, p.caminho_pasta_atleta, p.tipo_pedido,
+          t.caminho_pasta as torneio_caminho,
+          t.nome as torneio_nome
+        FROM pedidos p
+        JOIN torneios t ON p.torneio_id = t.id
+        WHERE p.estado = 'pendente' 
+          AND p.link_drive IS NULL 
+          AND p.caminho_pasta_atleta IS NOT NULL 
+          AND p.caminho_pasta_atleta != '' 
+          AND LOWER(p.tipo_pedido) LIKE '%email%'
+      `;
 
-    const pedidos: any[] = await new Promise((resolve, reject) => {
+      // 1. LER DA BASE DE DADOS (ESPERA ATÉ TER A RESPOSTA)
+      const pedidos: any[] = await new Promise((resolve, reject) => {
         db.all(query, [], (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
         });
       });
 
-    db.all(query, [], async (err, pedidos: any[]) => {
-      if (err) {
-        console.error('[Trator] Erro ao ler BD:', err.message);
-        return;
-      }
-
       if (pedidos.length === 0) {
         isProcessando = false;
-        return; 
+        return; // Sai em silêncio se não houver trabalho
       }
 
-      console.log(`[Trator] Encontrados ${pedidos.length} pedidos pendentes! A iniciar trabalhos...`);
+      console.log(`\n[Trator] Encontrados ${pedidos.length} pedidos pendentes! A iniciar trabalhos...`);
 
-      //Processar um atleta de cada vez 
+      // 2. PROCESSAR CADA PEDIDO SEQUENCIALMENTE
       for (const pedido of pedidos) {
         try {
-          if (!pedido.caminho_pasta_atleta) {
-            console.log(`Pedido ID ${pedido.id} não tem caminho definido. A ignorar...`);
-            continue; 
-          }
-
-          //Junta a Raiz do Torneio com a Pasta do Atleta (Ex: "E:\Torneios\Aveiro" + "\01 Iniciacao\05 Rafa")
           const caminhoLocalCompleto = path.join(pedido.torneio_caminho, pedido.caminho_pasta_atleta);
           const nomePastaCloud = `${pedido.torneio_nome} - ${pedido.nome}`;
 
-          console.log(`\n[Trator] A iniciar Upload para o pedido ID ${pedido.id} (${pedido.nome})...`);
+          console.log(`[Trator] Upload para o pedido ID ${pedido.id} (${pedido.nome})...`);
 
           const resultadoUpload = await processarUploadAtleta(caminhoLocalCompleto, nomePastaCloud);
 
-          //Se o upload correr bem, grava na Base de Dados!
           if (resultadoUpload.sucesso) {
             const dataEnvio = new Date().toISOString();
+            
+    
             const updateQuery = `
               UPDATE pedidos 
-              SET link_drive = ?, drive_folder_id = ?, data_envio = ?, estado = 'concluido' 
+              SET link_drive = ?, drive_folder_id = ?, data_envio = ?
               WHERE id = ?
             `;
             
-            // ATENÇÃO: Mais tarde vamos mudar o estado para 'concluido' só depois do WhatsApp.
-            // Para já, testamos a primeira etapa (Upload completo).
-            db.run(updateQuery, [resultadoUpload.link, resultadoUpload.idPasta, dataEnvio, pedido.id], (updateErr) => {
-              if (updateErr) {
-                console.error(`Erro a atualizar BD para o ID ${pedido.id}:`, updateErr.message);
-              } else {
-                console.log(`Pedido ID ${pedido.id} fechado! Link guardado.`);
-              }
+            //3 ATUALIZAR A BASE DE DADOS (ESPERA PELA CONFIRMAÇÃO)
+            await new Promise<void>((resolveUpdate, rejectUpdate) => {
+              db.run(updateQuery, [resultadoUpload.link, resultadoUpload.idPasta, dataEnvio, pedido.id], (updateErr) => {
+                if (updateErr) {
+                  console.error(`[Trator] Erro a atualizar BD (ID ${pedido.id}):`, updateErr.message);
+                  rejectUpdate(updateErr);
+                } else {
+                  console.log(`[Trator] Sucesso! Link guardado (ID ${pedido.id}).`);
+                  resolveUpdate();
+                }
+              });
             });
+
           } else {
-            console.error(`Falha no Drive para o pedido ID ${pedido.id}:`, resultadoUpload.erro);
+            console.error(`[Trator] Falha no Drive (ID ${pedido.id}):`, resultadoUpload.erro);
           }
 
         } catch (erroGeral) {
-          console.error(`Erro grave no pedido ID ${pedido.id}:`, erroGeral);
+          console.error(`[Trator] Erro grave no pedido ID ${pedido.id}:`, erroGeral);
         }
       }
-    });
+
+    } catch (erroQuery) {
+      console.error('[Trator] Erro na query principal:', erroQuery);
+    } finally {
+      //4 DESTRANCAR A PORTA (Aconteça o que acontecer, com sucesso ou erro, a porta é destrancada no fim)
+      isProcessando = false;
+    }
+
   }, 10 * 1000); 
 }
