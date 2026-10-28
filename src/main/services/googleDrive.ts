@@ -104,7 +104,7 @@ export async function processarUploadAtleta(caminhoPastaLocal: string, nomePasta
     }
 
     console.log(` Processo concluído para ${nomePastaCloud}!`);
-    return { sucesso: true, link: pastaCloud.link, fotosEnviadas: fotos.length };
+    return { sucesso: true, link: pastaCloud.link, idPasta: pastaCloud.id, fotosEnviadas: fotos.length };
 
   } catch (erro: any) {
     console.error(' Erro no processo de Upload:', erro);

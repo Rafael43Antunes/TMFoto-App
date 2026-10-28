@@ -46,7 +46,9 @@ const api = {
 
   importarExcelTorneios: () => ipcRenderer.invoke('importar-excel-torneios'),
 
-  getEstatisticas: () => ipcRenderer.invoke('get-estatisticas')
+  getEstatisticas: () => ipcRenderer.invoke('get-estatisticas'),
+
+  getEnviosGlobais: () => ipcRenderer.invoke('get-envios-globais')
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

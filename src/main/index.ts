@@ -8,6 +8,7 @@ import path from 'path'
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { processarUploadAtleta } from './services/googleDrive';
+import { iniciarTratorUploads } from './services/automacao'
 
 import * as xlsx from 'xlsx'
 
@@ -61,7 +62,8 @@ app.whenReady().then(() => {
 
   const db = iniciarBaseDados()
 
-  processarUploadAtleta('C:\\Users\\rafao\\Downloads\\Teste-Rafa', 'Torneio Teste - Rafa')
+  iniciarTratorUploads(db)
+
 
   // ===================== BASE DE DADOS ATLETAS ===========================================
   ipcMain.handle('get-atletas', async () => {
@@ -554,7 +556,8 @@ app.whenReady().then(() => {
     return new Promise((resolve) => {
       const { 
         torneio_id, numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio, valor_final 
+        email, telemovel, escalao, tipo_pedido, podio, valor_final,
+        caminho_pasta_atleta
       } = dados
       
       const data_criacao = new Date().toISOString()
@@ -562,8 +565,9 @@ app.whenReady().then(() => {
       const query = `
         INSERT INTO pedidos (
           torneio_id, numero_fpp, nome, clube, associacao, 
-          email, telemovel, escalao, tipo_pedido, podio, valor_final, data_criacao
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          email, telemovel, escalao, tipo_pedido, podio, valor_final, data_criacao,
+          caminho_pasta_atleta
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       
       // O ternário (podio ? 1 : 0) converte o boolean do React para número do SQLite
@@ -617,19 +621,21 @@ app.whenReady().then(() => {
     return new Promise((resolve) => {
       const { 
         id, numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio, valor_final 
+        email, telemovel, escalao, tipo_pedido, podio, valor_final,
+        caminho_pasta_atleta 
       } = dados
       
       const query = `
         UPDATE pedidos SET
           numero_fpp = ?, nome = ?, clube = ?, associacao = ?, 
           email = ?, telemovel = ?, escalao = ?, tipo_pedido = ?, 
-          podio = ?, valor_final = ?
+          podio = ?, valor_final = ?, caminho_pasta_atleta = ?
         WHERE id = ?
       `
       const valores = [
         numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, id
+        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final,
+        caminho_pasta_atleta, id
       ]
 
       db.run(query, valores, function(err) {
@@ -900,6 +906,42 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
       } catch (err: any) {
           resolve({ sucesso: false, erro: err.message })
       }
+    })
+  })
+
+  // =================== ENVIOSSSS ============================
+
+  ipcMain.handle('get-envios-globais', async () => {
+    return new Promise((resolve) => {
+      const query = `
+        SELECT 
+          p.id, 
+          p.numero_fpp, 
+          p.nome, 
+          p.email, 
+          p.telemovel, 
+          p.link_drive, 
+          p.email_enviado, 
+          p.whatsapp_enviado, 
+          p.estado, 
+          p.data_criacao, 
+          p.data_envio,
+          t.nome as torneio_nome
+        FROM pedidos p
+        JOIN torneios t ON p.torneio_id = t.id
+        WHERE p.estado != 'apagado' 
+          AND LOWER(p.tipo_pedido) LIKE '%email%' -- Apanha pedidos que contenham a palavra email
+        ORDER BY p.data_criacao DESC
+      `
+      
+      db.all(query, [], (err, rows) => {
+        if (err) {
+          console.error('Erro ao ler envios globais:', err)
+          resolve({ sucesso: false, erro: err.message, dados: [] })
+        } else {
+          resolve({ sucesso: true, dados: rows })
+        }
+      })
     })
   })
 
