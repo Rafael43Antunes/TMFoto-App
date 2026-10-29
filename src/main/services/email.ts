@@ -48,12 +48,18 @@ export async function enviarEmailComLink(emailDestino: string, nomeAtleta: strin
             Basta clicar no botão acima para abrir a pasta no Google Drive, onde podes ver e transferir as tuas fotos originais.
           </p>
           
+          <p style="color: #ef4444; font-size: 13px; font-weight: bold; text-align: center; margin-top: 15px;">⚠️ Atenção: Este link ficará disponível apenas durante 7 dias. Por favor, transfere as tuas fotografias o mais breve possível.</p>
+          
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
           
+          <p style="color: #475569; font-size: 15px; font-weight: bold; text-align: center; margin-bottom: 20px;">
+            Obrigado por confiares no nosso trabalho!
+          </p>
+
           <p style="color: #94a3b8; font-size: 12px; text-align: center; line-height: 1.5;">
-            Obrigado por confiares no nosso trabalho!<br>
-            <strong>TM Foto</strong>
-            <strong>+351 910 334 154</strong> 
+            <strong style="color: #64748b; font-size: 13px;">TM Foto</strong><br>
+            <a href="https://www.instagram.com/tmfoto_sport/" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: bold;">Instagram</a> &bull; 
+            <span style="color: #64748b;">+351 910 334 154</span>
           </p>
         </div>
       `
