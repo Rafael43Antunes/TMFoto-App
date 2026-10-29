@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import { processarUploadAtleta, apagarPastaCloud } from './googleDrive';
 import { enviarEmailComLink } from './email';
+import { enviarMensagemWhatsApp } from './whatsapp';
 import dns from 'dns';
 
 let isProcessando = false;
@@ -124,7 +125,34 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
 
           // ETAPA 3: WHATSAPP 
           if (emailEnviadoAtual && !pedido.whatsapp_enviado) {
-             // ...
+             if (!pedido.telemovel || pedido.telemovel.trim() === '') {
+              console.log(`[Trator] FASE 3: Pedido ID ${pedido.id} não tem telemóvel. Marca como concluído à mesma.`);
+              // Se não tem telemóvel, consideramos a pipeline terminada para ele.
+              await new Promise<void>((resolve) => {
+                db.run(`UPDATE pedidos SET whatsapp_enviado = 1 WHERE id = ?`, [pedido.id], () => resolve());
+              });
+            } else {
+              console.log(`[Trator] FASE 3: A enviar WhatsApp para ${pedido.telemovel}...`);
+              
+              const mensagemPersonalizada = `Olá ${pedido.nome}! 📸\n\nAs tuas fotografias do torneio *${pedido.torneio_nome}* já estão disponíveis!\n\nPodes aceder a todas as imagens originais através deste link (válido por 7 dias):\n${linkDriveAtual}\n\nObrigado por confiares na TM Foto! ✨`;
+              
+              const resultadoWhatsApp = await enviarMensagemWhatsApp(pedido.telemovel, mensagemPersonalizada);
+
+              if (resultadoWhatsApp.sucesso) {
+                await new Promise<void>((resolve, reject) => {
+                  db.run(`UPDATE pedidos SET whatsapp_enviado = 1, erro_processamento = NULL WHERE id = ?`, [pedido.id], 
+                    (err) => err ? reject(err) : resolve()
+                  );
+                });
+                console.log(`[Trator] FASE 3 OK! WhatsApp enviado.`);
+              } else {
+                 const msgErro = resultadoWhatsApp.erro || 'Falha no envio do WhatsApp.';
+                 await new Promise<void>((resolve) => {
+                   db.run(`UPDATE pedidos SET erro_processamento = ? WHERE id = ?`, [`Erro WhatsApp: ${msgErro}`, pedido.id], () => resolve());
+                 });
+                 // Se falhar o WhatsApp, pára aqui este pedido e tenta no próximo ciclo
+              }
+            }
           }
 
         } catch (erroPedido: any) {
@@ -144,7 +172,7 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
 }
 
 export function iniciarCamiaoDoLixo(db: sqlite3.Database) {
-  console.log('[Lixo] Serviço de limpeza automática iniciado (ciclo de 1h)...');
+  console.log('[Lixo] Servico de limpeza automatica iniciado (ciclo de 1h)...');
 
   // Corre a cada 1 hora 
   setInterval(() => {

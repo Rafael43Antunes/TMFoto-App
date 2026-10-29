@@ -8,6 +8,7 @@ import path from 'path'
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { iniciarTratorUploads, iniciarCamiaoDoLixo } from './services/automacao'
+import { iniciarWhatsApp, getStatusWhatsApp } from './services/whatsapp'
 
 import Store from 'electron-store'
 
@@ -65,6 +66,7 @@ app.whenReady().then(() => {
 
   iniciarTratorUploads(db)
   iniciarCamiaoDoLixo(db)
+  
 
 
   // ===================== BASE DE DADOS ATLETAS ===========================================
@@ -443,10 +445,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('update-torneio', async (event, dadosTorneio) => {
     return new Promise((resolve) => {
-      const { id, nome, data_evento } = dadosTorneio
+      const { id, nome, data_evento, caminho_pasta} = dadosTorneio
       
-      const query = `UPDATE torneios SET nome = ?, data_evento = ? WHERE id = ?`
-      const valores = [nome, data_evento, id]
+      const query = `UPDATE torneios SET nome = ?, data_evento = ?, caminho_pasta = ? WHERE id = ?`
+      const valores = [nome, data_evento, caminho_pasta, id]
 
       console.log('--- A EXECUTAR ATUALIZAR TORNEIO ---')
       console.log('Novos dados:', dadosTorneio)
@@ -625,13 +627,51 @@ app.whenReady().then(() => {
   ipcMain.handle('update-estado-pedido', async (event, dados) => {
     return new Promise((resolve) => {
       const { id, estado } = dados
+      
+      // 1. Atualiza o estado do pedido
       db.run(`UPDATE pedidos SET estado = ? WHERE id = ?`, [estado, id], function(err) {
         if (err) {
           console.error('Erro ao atualizar estado do pedido:', err)
           resolve({ sucesso: false, erro: err.message })
-        } else {
-          resolve({ sucesso: true })
+          return
         }
+        
+        // 2. Descobrir a que torneio este pedido pertence
+        db.get(`SELECT torneio_id FROM pedidos WHERE id = ?`, [id], (err, row: any) => {
+          if (err || !row || !row.torneio_id) {
+            resolve({ sucesso: true }) // Falha silenciosa na auto-gestão, mas o pedido atualizou
+            return
+          }
+
+          const torneioId = row.torneio_id
+
+          if (estado === 'concluido') {
+            const checkQuery = `SELECT COUNT(*) as pendentes FROM pedidos WHERE torneio_id = ? AND estado = 'pendente'`
+            
+            db.get(checkQuery, [torneioId], (err, res: any) => {
+              if (res && res.pendentes === 0) {
+                // A condição AND estado != 'concluido' garante que só devolvemos true na primeira vez que fecha!
+                db.run(`UPDATE torneios SET estado = 'concluido' WHERE id = ? AND estado != 'apagado' AND estado != 'concluido'`, [torneioId], function() {
+                  if (this.changes > 0) {
+                    // Avisa o Frontend que o torneio foi fechado NESTE exato momento!
+                    resolve({ sucesso: true, torneioAutoConcluido: true })
+                  } else {
+                    resolve({ sucesso: true })
+                  }
+                })
+              } else {
+                resolve({ sucesso: true })
+              }
+            })
+          } else if (estado === 'pendente') {
+            //Se revertemos um pedido para pendente, o torneio tem de voltar a reabrir
+            db.run(`UPDATE torneios SET estado = 'aberto' WHERE id = ? AND estado = 'concluido'`, [torneioId], () => {
+              resolve({ sucesso: true })
+            })
+          } else {
+            resolve({ sucesso: true })
+          }
+        })
       })
     })
   })
@@ -989,6 +1029,11 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
     })
   })
 
+  //======================== whatsapp
+  ipcMain.handle('get-whatsapp-status', async () => {
+    return getStatusWhatsApp()
+  })
+
   // ================== Definições
   const StoreClass = (Store as any).default || Store
   const store = new StoreClass()
@@ -1014,10 +1059,18 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
   //================================================================
   createWindow()
 
+  const janelaPrincipal = BrowserWindow.getAllWindows()[0]
+
+  iniciarWhatsApp(janelaPrincipal)
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0){
+      createWindow()
+      const novaJanela = BrowserWindow.getAllWindows()[0]
+      iniciarWhatsApp(novaJanela)
+    } 
   })
 })
 

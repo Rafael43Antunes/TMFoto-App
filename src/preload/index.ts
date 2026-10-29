@@ -52,7 +52,18 @@ const api = {
   getEnviosConcluidos: () => ipcRenderer.invoke('get-envios-concluidos'),
 
   getConfig: () => ipcRenderer.invoke('get-config'),
-  setConfig: (dados) => ipcRenderer.invoke('set-config', dados)
+  setConfig: (dados) => ipcRenderer.invoke('set-config', dados),
+
+  // ================== WHATSAPP ==========================
+  getWhatsappStatus: () => ipcRenderer.invoke('get-whatsapp-status'),
+  onWhatsappQr: (callback: any) => ipcRenderer.on('whatsapp-qr', (_event, qr) => callback(qr)),
+  onWhatsappReady: (callback: any) => ipcRenderer.on('whatsapp-ready', () => callback()),
+  onWhatsappDisconnected: (callback: any) => ipcRenderer.on('whatsapp-disconnected', () => callback()),
+  removeWhatsappListeners: () => {
+    ipcRenderer.removeAllListeners('whatsapp-qr')
+    ipcRenderer.removeAllListeners('whatsapp-ready')
+    ipcRenderer.removeAllListeners('whatsapp-disconnected')
+  }
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

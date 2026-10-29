@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react"
-import { Mail, KeyRound, Save, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react"
+import { Mail, KeyRound, Save, CheckCircle2, ShieldCheck, AlertCircle, Smartphone } from "lucide-react"
+
+import { ModalWhatsApp } from '../components/ModalWhatsApp'
 
 export default function Definicoes() {
     const [emailUser, setEmailUser] = useState('')
     const [emailPass, setEmailPass] = useState('')
     const [guardado, setGuardado] = useState(false)
     const [erro, setErro] = useState('')
+
+    const [showModalWhatsApp, setShowModalWhatsApp] = useState(false)
 
     useEffect(() => {
         carregarDefinicoes()
@@ -43,6 +47,24 @@ export default function Definicoes() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">Definições do Sistema</h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Configurações globais e credenciais de comunicação.</p>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-2xl p-6 shadow-sm mb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Integração WhatsApp</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Emparelhe o telemóvel para permitir o envio automático de mensagens na Etapa 3.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setShowModalWhatsApp(true)}
+                        className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm"
+                    >
+                        <Smartphone className="w-4 h-4" />
+                        Gerir Sessão / QR Code
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-[#151518] border border-gray-200 dark:border-[#333] rounded-3xl p-8 shadow-sm">
@@ -116,6 +138,10 @@ export default function Definicoes() {
                 </div>
 
             </div>
+            <ModalWhatsApp 
+                isOpen={showModalWhatsApp} 
+                onClose={() => setShowModalWhatsApp(false)} 
+            />
         </div>
     )
 }

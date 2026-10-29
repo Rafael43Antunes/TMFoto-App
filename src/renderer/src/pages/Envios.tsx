@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react"
-import { Search, ExternalLink, Cloud, Mail, MessageCircle, CheckCircle2, Clock, PackageX, Loader2, AlertTriangle, X, ArrowRight, Check, Trash2, WifiOff } from "lucide-react"
+import { Search, ExternalLink, Cloud, Mail, MessageCircle, CheckCircle2, Clock, PackageX, Loader2, AlertTriangle, X, ArrowRight, Check, Trash2, WifiOff, Smartphone } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
+
+import { ModalWhatsApp } from '../components/ModalWhatsApp'
 
 export default function Envios() {
     const navigate = useNavigate()
@@ -15,6 +17,8 @@ export default function Envios() {
     const [confirmarConcluir, setConfirmarConcluir] = useState(false)
 
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    const [showModalWhatsApp, setShowModalWhatsApp] = useState(false)
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -63,10 +67,16 @@ export default function Envios() {
     }
 
     const handleConcluirManualmente = async (id: number) => {
-        await (window as any).api.updateEstadoPedido({ id, estado: 'concluido' })
-        setEnvioSelecionado(null)
-        setConfirmarConcluir(false)
-        carregarDados()
+        const resultado = await (window as any).api.updateEstadoPedido({ id, estado: 'concluido' })
+        
+        if (resultado.sucesso) {
+            if (resultado.torneioAutoConcluido) {
+                sessionStorage.setItem('alertaTorneioFechado', 'true')
+            }
+            setEnvioSelecionado(null)
+            setConfirmarConcluir(false)
+            carregarDados()
+        }
     }
 
     const handleEliminarPermanentemente = async (id: number) => {
@@ -121,9 +131,21 @@ export default function Envios() {
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">Centro de Envios</h1>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Monitoriza a pipeline de entregas digitais por etapas.</p>
                 </div>
-                <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" placeholder="Pesquisar atleta ou torneio..." value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} className="pl-9 pr-4 py-2.5 bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white w-72" />
+                <div className="flex items-center gap-3">
+                    {/* BOTÃO WHATSAPP */}
+                    <button 
+                        onClick={() => setShowModalWhatsApp(true)}
+                        className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm"
+                    >
+                        <Smartphone className="w-4 h-4" />
+                        Ligar WhatsApp
+                    </button>
+
+                    {/* PESQUISA */}
+                    <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="text" placeholder="Pesquisar atleta ou torneio..." value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} className="pl-9 pr-4 py-2.5 bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white w-72" />
+                    </div>
                 </div>
             </div>
 
@@ -293,12 +315,17 @@ export default function Envios() {
                                     <button onClick={() => setConfirmarEliminar(false)} className="text-xs font-bold bg-gray-200 dark:bg-[#333] text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-300">Não</button>
                                 </div>
                             ) : (
-                                <button onClick={() => setConfirmarEliminar(true)} className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors px-2 py-1 rounded-lg">
+                                <button 
+                                    onClick={() => setConfirmarEliminar(true)} 
+                                    disabled={envioSelecionado.link_drive && envioSelecionado.link_drive !== 'Expirado'}
+                                    title={envioSelecionado.link_drive && envioSelecionado.link_drive !== 'Expirado' ? "Não pode eliminar um pedido com link ativo na Cloud. Aguarde a expiração (7 dias)." : "Eliminar este pedido"}
+                                    className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-red-500 transition-colors px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-500"
+                                >
                                     <Trash2 className="w-4 h-4"/> Eliminar Envio
                                 </button>
                             )}
 
-                            {/* CONCLUIR MANUALMENTE (Só se não estiver concluído) */}
+                            {/* CONCLUIR MANUALMENTE */}
                             {envioSelecionado.estado !== 'concluido' && (
                                 confirmarConcluir ? (
                                     <div className="flex items-center gap-3 animate-fade-in">
@@ -307,7 +334,13 @@ export default function Envios() {
                                         <button onClick={() => setConfirmarConcluir(false)} className="text-xs font-bold bg-gray-200 dark:bg-[#333] text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-300">Não</button>
                                     </div>
                                 ) : (
-                                    <button onClick={() => setConfirmarConcluir(true)} className="flex items-center gap-2 text-sm font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 px-4 py-2.5 rounded-xl transition-colors">
+                                    <button 
+                                        onClick={() => setConfirmarConcluir(true)} 
+                                        // Bloqueia se ainda não tiver feito upload E enviado o email
+                                        disabled={!envioSelecionado.link_drive || !envioSelecionado.email_enviado}
+                                        title={(!envioSelecionado.link_drive || !envioSelecionado.email_enviado) ? "Aguarde a conclusão das etapas anteriores." : "Marcar como Concluído"}
+                                        className="flex items-center gap-2 text-sm font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 px-4 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-50 dark:disabled:hover:bg-emerald-500/10"
+                                    >
                                         <CheckCircle2 className="w-5 h-5"/> Marcar como Concluído
                                     </button>
                                 )
@@ -317,6 +350,11 @@ export default function Envios() {
                     </div>
                 </div>
             )}
+
+            <ModalWhatsApp 
+                isOpen={showModalWhatsApp} 
+                onClose={() => setShowModalWhatsApp(false)} 
+            />
         </div>
     )
 }
