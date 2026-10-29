@@ -22,11 +22,17 @@ export function iniciarBaseDados() {
     db = new sqlite3.Database(dbPath, (err) => {
         if (err) {
             console.error('Erro ao abrir base de dados:', err.message)
+            return
         } else {
             console.log('Base de dados ligada com sucesso em:', dbPath)
             
             // 4. Cria as nossas tabelas
             db?.serialize(() =>{
+                db.run("PRAGMA journal_mode = WAL;");
+                db.run("PRAGMA synchronous = NORMAL;");
+                db.run("PRAGMA cache_size = -64000;");
+                db.run("PRAGMA busy_timeout = 5000;"); 
+                db.run("PRAGMA temp_store = MEMORY;");
 
                 const tratarErro = (nomeTabela: string) => (err: Error | null) => {
                     if (err) console.error(`Erro na tabela ${nomeTabela}:`, err.message)
@@ -87,6 +93,12 @@ export function iniciarBaseDados() {
                         FOREIGN KEY (torneio_id) REFERENCES torneios (id)
                     ) 
                 `, tratarErro('pedidos'))
+
+                db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_estado ON pedidos(estado);")
+                db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_torneio ON pedidos(torneio_id);")
+                db.run("CREATE INDEX IF NOT EXISTS idx_atletas_fpp ON atletas(numero_fpp);")
+                db.run("CREATE INDEX IF NOT EXISTS idx_atletas_nome ON atletas(nome);")
+                db.run("CREATE INDEX IF NOT EXISTS idx_pedidos_nome ON pedidos(nome);")
 
                 const adicionarColunas = [
                     "ALTER TABLE pedidos ADD COLUMN caminho_pasta_atleta TEXT;",

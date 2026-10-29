@@ -206,43 +206,55 @@ export default function BaseDados() {
                         </td>
                     </tr>
                 ) : (
-                    atletasFiltrados.map((atleta) => (
-                    <tr key={atleta.numero_fpp} className={`hover:bg-gray-50 dark:hover:bg-[#222] transition-colors group ${vistaAtual === 'apagados' ? 'opacity-60 hover:opacity-100' : ''}`}>
-                        <td className="px-6 py-4 font-mono text-sm text-blue-600 dark:text-blue-400 font-bold">{atleta.numero_fpp}</td>
-                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">
-                            {atleta.nome}
-                            {vistaAtual === 'apagados' && <div className="text-xs text-red-500 font-normal mt-1">Apagado a: {atleta.data_apagado}</div>}
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300 text-sm">
-                            <span className="bg-gray-100 dark:bg-[#333] px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide">{atleta.clube}</span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-sm">{atleta.associacao}</td>
-                        <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                {atleta.telemovel || <span className="opacity-40 font-normal">Sem Telemóvel</span>}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[250px] mt-0.5">
-                                {atleta.email || ''}
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                            {vistaAtual === 'ativos' ? (
-                                <>
-                                    <button onClick={() => abrirModalAtleta('editar', atleta)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors" title="Editar">
-                                        <Pencil className="w-4 h-4" />
+                    <>
+                        {/* A MAGIA AQUI: .slice(0, 100) impede que o ecrã congele */}
+                        {atletasFiltrados.slice(0, 100).map((atleta) => (
+                        <tr key={atleta.numero_fpp} className={`hover:bg-gray-50 dark:hover:bg-[#222] transition-colors group ${vistaAtual === 'apagados' ? 'opacity-60 hover:opacity-100' : ''}`}>
+                            <td className="px-6 py-4 font-mono text-sm text-blue-600 dark:text-blue-400 font-bold">{atleta.numero_fpp}</td>
+                            <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">
+                                {atleta.nome}
+                                {vistaAtual === 'apagados' && <div className="text-xs text-red-500 font-normal mt-1">Apagado a: {atleta.data_apagado}</div>}
+                            </td>
+                            <td className="px-6 py-4 text-gray-600 dark:text-gray-300 text-sm">
+                                <span className="bg-gray-100 dark:bg-[#333] px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide">{atleta.clube}</span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-sm">{atleta.associacao}</td>
+                            <td className="px-6 py-4">
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    {atleta.telemovel || <span className="opacity-40 font-normal">Sem Telemóvel</span>}
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[250px] mt-0.5">
+                                    {atleta.email || ''}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                {vistaAtual === 'ativos' ? (
+                                    <>
+                                        <button onClick={() => abrirModalAtleta('editar', atleta)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors" title="Editar">
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => setAtletaParaApagar(atleta)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Remover">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button onClick={() => restaurarAtleta(atleta)} className="p-2 text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1 ml-auto font-medium text-sm" title="Restaurar Atleta">
+                                        <RotateCcw className="w-4 h-4" /> Restaurar
                                     </button>
-                                    <button onClick={() => setAtletaParaApagar(atleta)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Remover">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </>
-                            ) : (
-                                <button onClick={() => restaurarAtleta(atleta)} className="p-2 text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1 ml-auto font-medium text-sm" title="Restaurar Atleta">
-                                    <RotateCcw className="w-4 h-4" /> Restaurar
-                                </button>
-                            )}
-                        </td>
-                    </tr>
-                    ))
+                                )}
+                            </td>
+                        </tr>
+                        ))}
+                        
+                        {/* Aviso amigável caso haja mais de 100 atletas */}
+                        {atletasFiltrados.length > 100 && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-8 text-center text-sm font-medium text-gray-500 bg-gray-50/50 dark:bg-[#1A1A1D]/30 border-t border-gray-100 dark:border-[#2A2A2A]">
+                                    A mostrar os primeiros <span className="font-bold text-gray-700 dark:text-gray-300">100</span> de <span className="font-bold text-gray-700 dark:text-gray-300">{atletasFiltrados.length}</span> registos. <br/>Utilize a barra de pesquisa para encontrar atletas específicos.
+                                </td>
+                            </tr>
+                        )}
+                    </>
                 )}
                 </tbody>
             </table>
