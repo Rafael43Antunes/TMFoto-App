@@ -76,7 +76,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row p-8 lg:p-14 gap-12 items-center justify-center max-w-7xl mx-auto w-full relative">
+    <div className="flex-1 flex flex-col lg:flex-row px-8 py-4 lg:px-14 lg:py-6 gap-12 items-center justify-center max-w-7xl mx-auto w-full relative">
       <div className="absolute top-[-10%] left-[-10%] w-[30%] h-[30%] bg-gray-300/30 dark:bg-white/5 blur-[100px] rounded-full pointer-events-none"></div>
       
       {/* Esquerda */}
