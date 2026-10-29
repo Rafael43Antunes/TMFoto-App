@@ -49,7 +49,10 @@ const api = {
   getEstatisticas: () => ipcRenderer.invoke('get-estatisticas'),
 
   getEnviosPendentes: () => ipcRenderer.invoke('get-envios-pendentes'),
-    getEnviosConcluidos: () => ipcRenderer.invoke('get-envios-concluidos')
+  getEnviosConcluidos: () => ipcRenderer.invoke('get-envios-concluidos'),
+
+  getConfig: () => ipcRenderer.invoke('get-config'),
+  setConfig: (dados) => ipcRenderer.invoke('set-config', dados)
 }
 
 // O RESTO DO TEU FICHEIRO MANTÉM-SE IGUAL:

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Search, ExternalLink, Cloud, Mail, MessageCircle, CheckCircle2, Clock, PackageX, Loader2, AlertTriangle, X, ArrowRight, Check, Trash2 } from "lucide-react"
+import { Search, ExternalLink, Cloud, Mail, MessageCircle, CheckCircle2, Clock, PackageX, Loader2, AlertTriangle, X, ArrowRight, Check, Trash2, WifiOff } from "lucide-react"
 import { useNavigate } from 'react-router-dom'
 
 export default function Envios() {
@@ -13,6 +13,34 @@ export default function Envios() {
     const [envioSelecionado, setEnvioSelecionado] = useState<any>(null)
     const [confirmarEliminar, setConfirmarEliminar] = useState(false)
     const [confirmarConcluir, setConfirmarConcluir] = useState(false)
+
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (envioSelecionado) {
+            // Procura a versão mais recente deste envio
+            const envioAtualizado = enviosPendentes.find((e: any) => e.id === envioSelecionado.id) 
+                                 || enviosConcluidos.find((e: any) => e.id === envioSelecionado.id);
+            
+            // Se encontrar dados novos e diferentes, atualiza a modal sem a fechar!
+            if (envioAtualizado && JSON.stringify(envioAtualizado) !== JSON.stringify(envioSelecionado)) {
+                setEnvioSelecionado(envioAtualizado);
+            }
+        }
+    }, [enviosPendentes, enviosConcluidos]);
 
     useEffect(() => {
         carregarDados()
@@ -81,6 +109,13 @@ export default function Envios() {
 
     return (
         <div className="h-full min-h-[85vh] flex flex-col max-w-7xl mx-auto w-full animate-fade-in px-8 lg:px-12 pt-6 pb-8">
+            {!isOnline && (
+                <div className="bg-orange-50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-900/50 p-3 flex items-center justify-center gap-2 text-orange-700 dark:text-orange-400 text-sm font-bold shadow-sm animate-in slide-in-from-top">
+                    <WifiOff className="w-5 h-5 animate-pulse" />
+                    Sem ligação à internet! Os envios automáticos estão em pausa até a ligação regressar.
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">Centro de Envios</h1>
@@ -91,6 +126,8 @@ export default function Envios() {
                     <input type="text" placeholder="Pesquisar atleta ou torneio..." value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} className="pl-9 pr-4 py-2.5 bg-white dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white w-72" />
                 </div>
             </div>
+
+
 
             {/* ABAS DE NAVEGAÇÃO */}
             <div className="flex items-center gap-6 border-b border-gray-200 dark:border-[#333] mb-6">
@@ -209,6 +246,19 @@ export default function Envios() {
                             </div>
 
                             {/* ZONA DE AVISOS */}
+                            {isOnline && !envioSelecionado.erro_processamento && envioSelecionado.estado !== 'concluido' && envioSelecionado.caminho_pasta_atleta && (
+                                <div className="mt-4 bg-blue-50/80 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl p-3.5 flex items-center gap-3">
+                                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
+                                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                        {!envioSelecionado.link_drive 
+                                            ? 'A carregar fotografias para a nuvem em alta qualidade...' 
+                                            : !envioSelecionado.email_enviado 
+                                                ? 'A preparar e disparar email com o link do Drive...' 
+                                                : 'Na fila de espera para envio automático de WhatsApp...'}
+                                    </span>
+                                </div>
+                            )}
+
                             {!envioSelecionado.caminho_pasta_atleta && !envioSelecionado.link_drive && (
                                 <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl p-5 flex items-start gap-4 animate-shake">
                                     <div className="p-2 bg-red-100 dark:bg-red-500/20 rounded-full shrink-0"><AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400"/></div>

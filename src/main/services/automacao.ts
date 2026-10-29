@@ -1,9 +1,11 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
-import { processarUploadAtleta } from './googleDrive';
+import { processarUploadAtleta, apagarPastaCloud } from './googleDrive';
 import { enviarEmailComLink } from './email';
+import dns from 'dns';
 
 let isProcessando = false;
+let proximaTentativaNet = 0;
 
 export function iniciarTratorUploads(db: sqlite3.Database) {
   console.log('[Trator] Sistema de automacao iniciado! A espera de ordens...');
@@ -12,9 +14,24 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
     // Se ainda estiver a processar o ciclo anterior, ignora este aviso e espera.
     if (isProcessando) return; 
 
+    const agora = Date.now();
+    if (agora < proximaTentativaNet) return;
+
     isProcessando = true; // Tranca a porta!
 
+
+
     try {
+        try {
+        await dns.promises.resolve('google.com');
+        proximaTentativaNet = 0; // Temos net! Limpa qualquer castigo anterior.
+      } catch (errInternet) {
+        console.log('[Trator] Sem ligação à internet. O motor vai dormir durante 30 minutos...');
+        proximaTentativaNet = agora + (30 * 60 * 1000); // Pausa de 30 minutos exatos
+        isProcessando = false;
+        return;
+      }
+
       const query = `
         SELECT 
           p.id, p.nome, p.email, p.caminho_pasta_atleta, p.tipo_pedido,
@@ -124,4 +141,40 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
     }
 
   }, 10 * 1000); 
+}
+
+export function iniciarCamiaoDoLixo(db: sqlite3.Database) {
+  console.log('[Lixo] Serviço de limpeza automática iniciado (ciclo de 1h)...');
+
+  // Corre a cada 1 hora 
+  setInterval(() => {
+    // Calcula exatamente a data de há 7 dias atrás
+    const limite7Dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const query = `
+      SELECT id, nome, drive_folder_id 
+      FROM pedidos 
+      WHERE estado = 'concluido' 
+        AND drive_folder_id IS NOT NULL 
+        AND data_envio <= ?
+    `;
+
+    db.all(query, [limite7Dias], async (err, pedidosExpirados: any[]) => {
+      if (err || !pedidosExpirados || pedidosExpirados.length === 0) return;
+
+      console.log(`\n[Lixo] Encontrados ${pedidosExpirados.length} envios com mais de 7 dias! A iniciar limpeza da Cloud...`);
+
+      for (const pedido of pedidosExpirados) {
+        console.log(`[Lixo] A apagar do Google Drive: Pedido ID ${pedido.id} (${pedido.nome})`);
+        
+        const sucesso = await apagarPastaCloud(pedido.drive_folder_id);
+        
+        if (sucesso) {
+          db.run(`UPDATE pedidos SET link_drive = 'Expirado', drive_folder_id = NULL WHERE id = ?`, [pedido.id]);
+          console.log(`[Lixo] Pedido ID ${pedido.id} limpo com sucesso!`);
+        }
+      }
+    });
+
+  }, 60 * 60 * 1000); 
 }

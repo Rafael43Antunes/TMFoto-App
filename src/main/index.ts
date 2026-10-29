@@ -7,8 +7,9 @@ import fs from 'fs'
 import path from 'path'
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { processarUploadAtleta } from './services/googleDrive';
-import { iniciarTratorUploads } from './services/automacao'
+import { iniciarTratorUploads, iniciarCamiaoDoLixo } from './services/automacao'
+
+import Store from 'electron-store'
 
 import * as xlsx from 'xlsx'
 
@@ -63,6 +64,7 @@ app.whenReady().then(() => {
   const db = iniciarBaseDados()
 
   iniciarTratorUploads(db)
+  iniciarCamiaoDoLixo(db)
 
 
   // ===================== BASE DE DADOS ATLETAS ===========================================
@@ -985,6 +987,28 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
         else resolve({ sucesso: true, dados: rows })
       })
     })
+  })
+
+  // ================== Definições
+  const StoreClass = (Store as any).default || Store
+  const store = new StoreClass()
+
+  ipcMain.handle('get-config', async () => {
+    return {
+      emailUser: store.get('email_user') || '',
+      emailPass: store.get('email_pass') || ''
+    }
+  })
+
+  ipcMain.handle('set-config', async (_, dados) => {
+    try {
+      if (dados.emailUser !== undefined) store.set('email_user', dados.emailUser.trim())
+      if (dados.emailPass !== undefined) store.set('email_pass', dados.emailPass.trim())
+      return { sucesso: true }
+    } catch (err: any) {
+      console.error('Erro ao guardar configurações:', err)
+      return { sucesso: false, erro: err.message }
+    }
   })
 
   //================================================================

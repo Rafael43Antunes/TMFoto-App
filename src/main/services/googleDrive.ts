@@ -112,3 +112,13 @@ export async function processarUploadAtleta(caminhoPastaLocal: string, nomePasta
   }
 }
 
+export async function apagarPastaCloud(idPasta: string) {
+  try {
+    await drive.files.delete({ fileId: idPasta });
+    return true;
+  } catch (erro) {
+    console.error(`[Drive] Erro ao apagar pasta ${idPasta}:`, erro);
+    return false;
+  }
+}
+
