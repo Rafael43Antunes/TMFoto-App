@@ -39,8 +39,13 @@ export default function Envios() {
             const envioAtualizado = enviosPendentes.find((e: any) => e.id === envioSelecionado.id) 
                                  || enviosConcluidos.find((e: any) => e.id === envioSelecionado.id);
             
-            // Se encontrar dados novos e diferentes, atualiza a modal sem a fechar!
-            if (envioAtualizado && JSON.stringify(envioAtualizado) !== JSON.stringify(envioSelecionado)) {
+            // Só atualiza a modal se houver progresso real na pipeline
+            if (envioAtualizado && (
+                envioAtualizado.estado !== envioSelecionado.estado ||
+                envioAtualizado.link_drive !== envioSelecionado.link_drive ||
+                envioAtualizado.email_enviado !== envioSelecionado.email_enviado ||
+                envioAtualizado.whatsapp_enviado !== envioSelecionado.whatsapp_enviado
+            )) {
                 setEnvioSelecionado(envioAtualizado);
             }
         }
@@ -268,7 +273,7 @@ export default function Envios() {
                             </div>
 
                             {/* ZONA DE AVISOS */}
-                            {isOnline && !envioSelecionado.erro_processamento && envioSelecionado.estado !== 'concluido' && envioSelecionado.caminho_pasta_atleta && (
+                            {isOnline && !envioSelecionado.erro_processamento && envioSelecionado.caminho_pasta_atleta && envioSelecionado.estado !== 'concluido' && !envioSelecionado.whatsapp_enviado && (
                                 <div className="mt-4 bg-blue-50/80 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl p-3.5 flex items-center gap-3">
                                     <Loader2 className="w-5 h-5 text-blue-500 animate-spin shrink-0" />
                                     <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -276,7 +281,7 @@ export default function Envios() {
                                             ? 'A carregar fotografias para a nuvem em alta qualidade...' 
                                             : !envioSelecionado.email_enviado 
                                                 ? 'A preparar e disparar email com o link do Drive...' 
-                                                : 'Na fila de espera para envio automático de WhatsApp...'}
+                                                : 'A enviar mensagem de WhatsApp...'}
                                     </span>
                                 </div>
                             )}

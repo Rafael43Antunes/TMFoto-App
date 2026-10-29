@@ -129,7 +129,7 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
               console.log(`[Trator] FASE 3: Pedido ID ${pedido.id} não tem telemóvel. Marca como concluído à mesma.`);
               // Se não tem telemóvel, consideramos a pipeline terminada para ele.
               await new Promise<void>((resolve) => {
-                db.run(`UPDATE pedidos SET whatsapp_enviado = 1 WHERE id = ?`, [pedido.id], () => resolve());
+                db.run(`UPDATE pedidos SET whatsapp_enviado = 1, estado = 'concluido' WHERE id = ?`, [pedido.id], () => resolve());
               });
             } else {
               console.log(`[Trator] FASE 3: A enviar WhatsApp para ${pedido.telemovel}...`);
@@ -140,7 +140,7 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
 
               if (resultadoWhatsApp.sucesso) {
                 await new Promise<void>((resolve, reject) => {
-                  db.run(`UPDATE pedidos SET whatsapp_enviado = 1, erro_processamento = NULL WHERE id = ?`, [pedido.id], 
+                  db.run(`UPDATE pedidos SET whatsapp_enviado = 1, estado = 'concluido', erro_processamento = NULL WHERE id = ?`, [pedido.id], 
                     (err) => err ? reject(err) : resolve()
                   );
                 });
@@ -153,6 +153,12 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
                  // Se falhar o WhatsApp, pára aqui este pedido e tenta no próximo ciclo
               }
             }
+          }
+          if (linkDriveAtual && emailEnviadoAtual && pedido.whatsapp_enviado) {
+              await new Promise<void>((resolve) => {
+                  db.run(`UPDATE pedidos SET estado = 'concluido' WHERE id = ?`, [pedido.id], () => resolve());
+              });
+              console.log(`[Trator] LIMPEZA: Pedido ID ${pedido.id} estava todo verde. Movido para Concluídos!`);
           }
 
         } catch (erroPedido: any) {
