@@ -35,7 +35,7 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
 
       const query = `
         SELECT 
-          p.id, p.nome, p.email, p.caminho_pasta_atleta, p.tipo_pedido,
+          p.id, p.nome, p.email, p.telemovel, p.caminho_pasta_atleta, p.tipo_pedido,
           p.link_drive, p.email_enviado, p.whatsapp_enviado, p.erro_processamento,
           t.caminho_pasta as torneio_caminho,
           t.nome as torneio_nome
@@ -134,7 +134,7 @@ export function iniciarTratorUploads(db: sqlite3.Database) {
             } else {
               console.log(`[Trator] FASE 3: A enviar WhatsApp para ${pedido.telemovel}...`);
               
-              const mensagemPersonalizada = `Olá ${pedido.nome}! 📸\n\nAs tuas fotografias do torneio *${pedido.torneio_nome}* já estão disponíveis!\n\nPodes aceder a todas as imagens originais através deste link (válido por 7 dias):\n${linkDriveAtual}\n\nObrigado por confiares na TM Foto! ✨`;
+              const mensagemPersonalizada = `Olá ${pedido.nome}! 📸\n\nAs tuas fotografias do torneio ${pedido.torneio_nome} já estão disponíveis!\n\nPodes aceder a todas as imagens originais através deste link (válido por 7 dias):\n${linkDriveAtual}\n\nObrigado por confiares na TM Foto! ✨`;
               
               const resultadoWhatsApp = await enviarMensagemWhatsApp(pedido.telemovel, mensagemPersonalizada);
 
