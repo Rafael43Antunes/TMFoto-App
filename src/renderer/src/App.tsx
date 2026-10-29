@@ -8,6 +8,7 @@ import Pastas from './pages/Pastas'
 import Torneios from './pages/Torneios'
 import Envios from './pages/Envios'
 import Estatisticas from './pages/Estatisticas'
+import Definicoes from './pages/Definicoes'
 
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/torneios" element={<Torneios />} /> 
           <Route path="/envios" element={<Envios />} />
           <Route path="/estatisticas" element={<Estatisticas />} /> 
+          <Route path="/definicoes" element={<Definicoes/>} />
         </Routes>
       </Layout>
     </HashRouter>

@@ -8,7 +8,8 @@ import {
   Menu, 
   X, 
   BarChart2, 
-  Send 
+  Send,
+  Settings 
 } from 'lucide-react'
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: '/pastas', icon: FolderTree, label: 'Gerador de Pastas' },
     { path: '/estatisticas', icon: BarChart2, label: 'Estatísticas' },
     { path: '/envios', icon: Send, label: 'Envio de Fotos' },
+    { path: '/definicoes', icon: Settings, label: 'Definições' },
   ]
 
   return (

@@ -8,7 +8,8 @@ import {
   Database, 
   Trophy, 
   Send,
-  BarChart2
+  BarChart2,
+  Settings
 } from 'lucide-react'
 
 export default function Home() {
@@ -90,6 +91,7 @@ export default function Home() {
           <MenuButton to="/pastas" title="Gerar Pastas" desc="Extração automática do PDF" icon={FolderTree} cor="orange" />
           <MenuButton to="/estatisticas" title="Estatísticas" desc="Análise financeira global" icon={BarChart2} cor="purple" />
           <MenuButton to="/envios" title="Envios" desc="Estado das transferências" icon={Send} cor="rose" />
+          <MenuButton to="/definicoes" title="Definições" desc="Configurações e credenciais" icon={Settings} cor="slate" />
         </div>
       </div>
 
@@ -176,6 +178,7 @@ function MenuButton({ to, title, desc, icon: Icon, cor }: { to: string, title: s
     orange: "text-orange-500 bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20",
     purple: "text-purple-500 bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20",
     rose: "text-rose-500 bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20",
+    slate: "text-slate-500 bg-slate-50 dark:bg-slate-500/10 border-slate-100 dark:border-slate-500/20",
   }
 
   return (
