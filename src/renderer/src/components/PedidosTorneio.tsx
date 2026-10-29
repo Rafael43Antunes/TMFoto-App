@@ -67,8 +67,15 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
             estado: 'concluido'
         })
 
-        if (resultado.sucesso) carregarPedidos()
-        else alert("Erro ao alterar estado: " + resultado.erro)
+        if (resultado.sucesso) {
+            // A MAGIA AQUI: Se o backend disser que fechou o torneio, guarda o post-it
+            if (resultado.torneioAutoConcluido) {
+                sessionStorage.setItem('alertaTorneioFechado', 'true')
+            }
+            carregarPedidos()
+        } else {
+            alert("Erro ao alterar estado: " + resultado.erro)
+        }
     }
 
     const restaurarPedido = async (id: number) => {

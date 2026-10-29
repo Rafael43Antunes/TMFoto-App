@@ -1,5 +1,5 @@
 import { use, useEffect, useState } from "react"
-import { Trophy, Settings, Plus, Calendar, Package, CheckCircle, Clock, ChevronRight, X, Euro, Eye, EyeOff, Edit2, Trash2 } from "lucide-react"
+import { Trophy, Settings, Plus, Calendar, Package, CheckCircle, Clock, ChevronRight, X, Euro, Eye, EyeOff, Edit2, Trash2, CheckCircle2 } from "lucide-react"
 
 import { ModalPrecos } from '../components/ModalPrecos'
 import { ModalNovoTorneio } from '../components/ModalNovoTorneio'
@@ -21,6 +21,8 @@ export default function GestaoPedidos() {
     const [showModalNovo, setShowModalNovo] = useState(false)
     const [torneioParaApagar, setTorneioParaApagar] = useState<any>(null)
     const [torneioParaEditar, setTorneioParaEditar] = useState<any>(null)
+
+    const [mostrarAvisoFecho, setMostrarAvisoFecho] = useState(false);
 
     const [torneioParaRestaurar, setTorneioParaRestaurar] = useState<any>(null)
     const [torneioParaEliminarDefinitivo, setTorneioParaEliminarDefinitivo] = useState<any>(null)
@@ -86,6 +88,20 @@ export default function GestaoPedidos() {
         setIsImporting(false)
     }
 
+    useEffect(() => {
+        // Vai ver se o "post-it" existe
+        if (!torneioAberto && sessionStorage.getItem('alertaTorneioFechado')) {
+            setMostrarAvisoFecho(true); // Mostra o banner
+            sessionStorage.removeItem('alertaTorneioFechado');
+            
+            const timerId = setTimeout(() => {
+                setMostrarAvisoFecho(false); 
+            }, 5000);
+
+            return () => clearTimeout(timerId);
+        }
+    }, [torneioAberto]);
+
     if (torneioAberto) {
         return (
             <PedidosTorneio 
@@ -98,8 +114,23 @@ export default function GestaoPedidos() {
         )
     }
 
+    
+
     return (
        <div className="h-full min-h-[85vh] flex flex-col max-w-6xl mx-auto w-full animate-fade-in pb-8 pt-12">
+            {mostrarAvisoFecho && (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 p-4 rounded-xl flex items-center justify-between mb-6 animate-in slide-in-from-top fade-in duration-300">
+                    <div className="flex items-center gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-800 dark:text-emerald-300 text-sm font-medium">
+                            Fantástico! Todos os pedidos foram finalizados e o torneio foi movido para a aba de <strong>Concluídos</strong>.
+                        </span>
+                    </div>
+                    <button onClick={() => setMostrarAvisoFecho(false)} className="text-emerald-600 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Cabeçalho */}
             <div className="flex justify-between items-end mb-8">

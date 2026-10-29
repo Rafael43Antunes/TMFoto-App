@@ -11,12 +11,14 @@ interface ModalEditarTorneioProps {
 export function ModalEditarTorneio({ isOpen, onClose, onSuccess, torneio }: ModalEditarTorneioProps) {
     const [editNome, setEditNome] = useState('')
     const [editData, setEditData] = useState('')
+    const [editCaminhoPasta, setEditCaminhoPasta] = useState('')
     const [isEditing, setIsEditing] = useState(false)
 
     useEffect(() => {
         if (torneio) {
             setEditNome(torneio.nome || '')
             setEditData(torneio.data_evento || '')
+            setEditCaminhoPasta(torneio.caminho_pasta || '')
         }
     }, [torneio])
 
@@ -30,7 +32,8 @@ export function ModalEditarTorneio({ isOpen, onClose, onSuccess, torneio }: Moda
         const dados = {
             id: torneio.id,
             nome: editNome,
-            data_evento: editData
+            data_evento: editData,
+            caminho_pasta: editCaminhoPasta
         }
 
         const resultado = await (window as any).api.updateTorneio(dados)
@@ -78,6 +81,17 @@ export function ModalEditarTorneio({ isOpen, onClose, onSuccess, torneio }: Moda
                             value={editData}
                             onChange={(e) => setEditData(e.target.value)}
                             className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl px-4 py-2.5 text-gray-800 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Caminho da Pasta Raiz</label>
+                        <input 
+                            type="text" 
+                            value={editCaminhoPasta}
+                            onChange={(e) => setEditCaminhoPasta(e.target.value)}
+                            placeholder="Ex: D:\Fotografia\Torneios\Nome do Torneio"
+                            className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl px-4 py-2.5 text-gray-800 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm"
                         />
                     </div>
                 </div>
