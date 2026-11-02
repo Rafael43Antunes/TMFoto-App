@@ -1,7 +1,8 @@
 import sqlite3 from 'sqlite3'
 import Store from 'electron-store'
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import path from 'path';
+import fs from 'fs';
 
 const StoreClass = (Store as any).default || Store
 const store = new StoreClass()
@@ -11,11 +12,28 @@ let db: sqlite3.Database | null = null
 export function iniciarBaseDados() {
     // 1. Pergunta à memória onde está a base de dados
     let dbPath = store.get('caminho_base_dados') as string
+
+    if (dbPath && !fs.existsSync(dbPath)) {
+        console.log('Base de dados não encontrada. O disco mudou de letra ou não está ligado.');
+        dbPath = ''; 
+    }
     
     // 2. Se for a primeira vez que abrimos a app, cria o ficheiro na pasta segura do sistema (AppData)
     if (!dbPath) {
-        dbPath = path.join(app.getPath('userData'), 'tmfoto.db')
-        store.set('caminho_base_dados', dbPath)
+        const escolha = dialog.showOpenDialogSync({
+            title: 'Onde está o disco externo? Selecione a pasta para a Base de Dados',
+            buttonLabel: 'Guardar Base de Dados Aqui',
+            properties: ['openDirectory']
+        })
+
+        if (escolha && escolha.length > 0) {
+            dbPath = path.join(escolha[0], 'tmfoto.db')
+            store.set('caminho_base_dados', dbPath) // O computador atual decora a letra nova
+        } else {
+            dialog.showErrorBox('Disco Externo Necessário', 'Ligue o disco externo e selecione a pasta para arrancar a TM Foto.')
+            app.quit()
+            return null
+        }
     }
 
     // 3. Liga o motor SQLite a esse ficheiro
