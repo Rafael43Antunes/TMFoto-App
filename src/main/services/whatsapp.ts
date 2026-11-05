@@ -1,10 +1,19 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import { BrowserWindow } from 'electron';
+import fs from 'fs';
 
 // Variáveis globais para guardar o estado do nosso robô
 let client: Client | null = null;
 let isReady = false;
 let qrCodeData = '';
+
+const caminhosChrome = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+];
+const caminhoNavegador = caminhosChrome.find(caminho => fs.existsSync(caminho));
+
+
 
 export function iniciarWhatsApp(mainWindow: BrowserWindow) {
     console.log('[WhatsApp] A iniciar o motor do WhatsApp...');
@@ -13,6 +22,7 @@ export function iniciarWhatsApp(mainWindow: BrowserWindow) {
     client = new Client({
         authStrategy: new LocalAuth({ dataPath: 'whatsapp_session' }),
         puppeteer: {
+            executablePath: caminhoNavegador,
             headless: true, // true = Chrome invisível
             args: ['--no-sandbox', '--disable-setuid-sandbox'] // Evita conflitos no Electron
         }
