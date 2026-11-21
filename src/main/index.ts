@@ -6,7 +6,7 @@ import { iniciarBaseDados, getCaminhoBD } from './database'
 import fs from 'fs'
 import path from 'path'
 
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { extrairOrdemSaidaIA } from './services/extracaoIA'
 import { iniciarTratorUploads, iniciarCamiaoDoLixo } from './services/automacao'
 import { iniciarWhatsApp, getStatusWhatsApp } from './services/whatsapp'
 
@@ -278,62 +278,16 @@ app.whenReady().then(() => {
 
   ipcMain.handle('processar-pdf', async (event, caminhoPdf) => {
     try {
-      /*const chave = (import.meta.env as any).VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  
-      const resposta = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${chave}`);
-      const dados = await resposta.json();
-      console.log("OS MEUS MODELOS SÃO:", dados.models ? dados.models.map((m: any) => m.name) : dados);*/
-
-      // 1. Lê o ficheiro a partir do caminho que o React enviou
-      const pdfBuffer = fs.readFileSync(caminhoPdf)
-      
-      const pdfPart = {
-        inlineData: {
-          data: pdfBuffer.toString('base64'),
-          mimeType: 'application/pdf'
-        }
-      }
-
-      // 2. Inicializa a IA
-      const genAI = new GoogleGenerativeAI((import.meta.env as any).VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
-      
-      // Mudámos para o modelo PRO, que é mais robusto e não dá o erro 404
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-flash-latest', 
-        generationConfig: { 
-          responseMimeType: 'application/json' 
-        }
-      })
-
-      const prompt = `
-        És um especialista em extração de dados desportivos. Vais ler um PDF com a ordem de saída de um torneio de Patinagem Artística.
-        Agrupa os atletas pelo seu escalão. Descobre também o dia da prova para cada escalão (ex: "Dia 1", "Dia 2", "Sábado", "Domingo"). Se não encontrares, usa "Dia 1".
-        
-        Devolve APENAS um array JSON exato com esta estrutura (sem markdown, sem \`\`\`json):
-        [
-          {
-            "nome": "Nome do Escalão",
-            "dia": "Dia 1",
-            "atletas": [
-              { "ordem": 1, "nome": "Nome do Atleta", "clube": "Sigla" }
-            ]
-          }
-        ]
-      `
-
-      // 3. Pede a extração à IA
-      const result = await model.generateContent([prompt, pdfPart])
-      let respostaIA = result.response.text()
-
-      respostaIA = respostaIA.replace(/```json/g, '').replace(/```/g, '').trim()
-
-      return JSON.parse(respostaIA)
-
-    } catch (err) {
-      console.error('Erro na extração com IA:', err)
-      return null
+    const progresso = (msg: string) => {
+      if (!event.sender.isDestroyed()) event.sender.send('pdf-progresso', msg)
     }
-  })
+    const { escaloes, avisos } = await extrairOrdemSaidaIA(caminhoPdf, progresso)
+    return { sucesso: true, dados: escaloes, avisos }
+  } catch (err: any) {
+    console.error('[PDF] Erro na extração com IA:', err)
+    return { sucesso: false, erro: err?.message || String(err) }
+  }
+})
 
   ipcMain.handle('gerar-pastas-disco', async (event, escaloes) => {
     try {
@@ -356,7 +310,7 @@ app.whenReady().then(() => {
         const atletasOrdenados = [...escalao.atletas].sort((a, b) => a.ordem - b.ordem)
 
         atletasOrdenados.forEach((atleta, indexAtl) => {
-          const numAtl = String(indexAtl + 1).padStart(2, '0') // Ex: "01", "02"
+          const numAtl = String(atleta.ordem || indexAtl + 1).padStart(2, '0') // Ex: "01", "02"
           const nomeAtlLimpo = atleta.nome.replace(/[<>:"/\\|?*]+/g, '').trim()
           const pastaAtleta = `${numAtl} ${nomeAtlLimpo}` // "01 Nome do Atleta"
 
@@ -1043,7 +997,8 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
   ipcMain.handle('get-config', async () => {
     return {
       emailUser: store.get('email_user') || '',
-      emailPass: store.get('email_pass') || ''
+      emailPass: store.get('email_pass') || '',
+      googleRefreshToken: store.get('googleRefreshToken') || ''
     }
   })
 
@@ -1051,6 +1006,7 @@ ipcMain.handle('get-estatisticas', async (event, filtros) => {
     try {
       if (dados.emailUser !== undefined) store.set('email_user', dados.emailUser.trim())
       if (dados.emailPass !== undefined) store.set('email_pass', dados.emailPass.trim())
+      if (dados.googleToken !== undefined) store.set('googleRefreshToken', dados.googleToken.trim())
       return { sucesso: true }
     } catch (err: any) {
       console.error('Erro ao guardar configurações:', err)

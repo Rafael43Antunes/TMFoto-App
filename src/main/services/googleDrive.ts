@@ -1,11 +1,15 @@
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
+import Store from 'electron-store';
 
 
 const CLIENT_ID = (import.meta.env as any).VITE_GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = (import.meta.env as any).VITE_GOOGLE_CLIENT_SECRET || process.env.VITE_GOOGLE_CLIENT_SECRET;
 const REFRESH_TOKEN = (import.meta.env as any).VITE_GOOGLE_REFRESH_TOKEN || process.env.VITE_GOOGLE_REFRESH_TOKEN;
+
+const StoreClass = (Store as any).default || Store;
+const store = new StoreClass();
 
 const oauth2Client = new google.auth.OAuth2(
   CLIENT_ID,
@@ -13,8 +17,12 @@ const oauth2Client = new google.auth.OAuth2(
   'https://developers.google.com/oauthplayground'
 );
 
+const tokenGuardado = store.get('googleRefreshToken') as string;
+
+const tokenFinal = tokenGuardado || REFRESH_TOKEN;
+
 oauth2Client.setCredentials({
-  refresh_token: REFRESH_TOKEN
+  refresh_token: tokenFinal
 });
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });

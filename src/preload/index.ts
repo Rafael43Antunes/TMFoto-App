@@ -17,6 +17,11 @@ const api = {
 
   escolherPdf: () => ipcRenderer.invoke('escolher-pdf'),
   processarPdf: (caminho) => ipcRenderer.invoke('processar-pdf', caminho),
+  onPdfProgresso: (callback: (msg: string) => void) => {
+    const listener = (_: unknown, msg: string) => callback(msg)
+    ipcRenderer.on('pdf-progresso', listener)
+    return () => ipcRenderer.removeListener('pdf-progresso', listener)
+  },
   gerarPastasDisco: (dados) => ipcRenderer.invoke('gerar-pastas-disco', dados),
 
   getTorneios: () => ipcRenderer.invoke('get-torneios'),

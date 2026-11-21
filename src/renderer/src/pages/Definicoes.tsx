@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Mail, KeyRound, Save, CheckCircle2, ShieldCheck, AlertCircle, Smartphone } from "lucide-react"
+import { Mail, KeyRound, Save, CheckCircle2, ShieldCheck, AlertCircle, Smartphone, Cloud } from "lucide-react"
 
 import { ModalWhatsApp } from '../components/ModalWhatsApp'
 
@@ -8,6 +8,7 @@ export default function Definicoes() {
     const [emailPass, setEmailPass] = useState('')
     const [guardado, setGuardado] = useState(false)
     const [erro, setErro] = useState('')
+    const [googleToken, setGoogleToken] = useState('');
 
     const [showModalWhatsApp, setShowModalWhatsApp] = useState(false)
 
@@ -20,6 +21,7 @@ export default function Definicoes() {
             const config = await (window as any).api.getConfig()
             if (config.emailUser) setEmailUser(config.emailUser)
             if (config.emailPass) setEmailPass(config.emailPass)
+            if (config.googleRefreshToken) setGoogleToken(config.googleRefreshToken)    
         } catch (err) {
             console.error('Erro ao carregar definições:', err)
         }
@@ -30,7 +32,7 @@ export default function Definicoes() {
         setGuardado(false)
 
         try {
-            const res = await (window as any).api.setConfig({ emailUser, emailPass })
+            const res = await (window as any).api.setConfig({ emailUser, emailPass, googleToken })
             if (res.sucesso) {
                 setGuardado(true)
                 setTimeout(() => setGuardado(false), 3000) 
@@ -114,6 +116,21 @@ export default function Definicoes() {
                                 placeholder="Código de 16 letras gerado no Google" 
                                 className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white transition-colors font-mono tracking-widest" 
                             />
+                        </div>
+                        <div className="pt-4 border-t border-gray-100 dark:border-[#2A2A2A]">
+                            <label className="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <span>Google Drive: Refresh Token (Ecrã de Resgate)</span>
+                            </label>
+                            <div className="relative">
+                                <Cloud className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input 
+                                    type="password" 
+                                    value={googleToken}
+                                    onChange={(e) => setGoogleToken(e.target.value)}
+                                    placeholder="Cola aqui o novo token que começa por 1//..." 
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] rounded-xl text-sm outline-none focus:border-blue-500 text-gray-800 dark:text-white transition-colors font-mono tracking-widest" 
+                                />
+                            </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
                             Nunca uses a tua palavra-passe normal do Gmail. Gera uma "App Password" nas Definições de Segurança da tua Conta Google.

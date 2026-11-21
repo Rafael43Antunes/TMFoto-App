@@ -45,21 +45,30 @@ export default function GerarPastas() {
       setLoadingText(mensagensProcessamento[step])
     }, 3000)
 
+    const pararProgresso = (window as any).api.onPdfProgresso((msg: string) => {
+      clearInterval(interval)
+      setLoadingText(msg)
+    })
+
     try {
-      // 3. Mandamos o caminho do ficheiro para a IA mastigar
-      const dados = await (window as any).api.processarPdf(caminho)
-      clearInterval(interval)
-      
-      if (dados && Array.isArray(dados)) {
-        setEscaloes(dados)
+      // 3. Agora o main devolve { sucesso, dados, avisos, erro } em vez do array direto
+      const resultado = await (window as any).api.processarPdf(caminho)
+
+      if (resultado?.sucesso && Array.isArray(resultado.dados)) {
+        setEscaloes(resultado.dados)
+        if (resultado.avisos?.length) {
+          alert(`Extração concluída com avisos:\n\n• ${resultado.avisos.join('\n• ')}`)
+        }
+      } else {
+        alert(`Não foi possível ler o PDF.\n\nDetalhe: ${resultado?.erro ?? 'resposta vazia'}`)
       }
-      
     } catch (error) {
-      clearInterval(interval)
-      console.error("Erro a importar PDF:", error)
-      alert("Ocorreu um erro ao processar o PDF. Verifica a tua ligação à internet e tenta novamente.")
+      console.error('Erro a importar PDF:', error)
+      alert('Ocorreu um erro ao processar o PDF. Verifica a tua ligação à internet e tenta novamente.')
     } finally {
+      // Limpa sempre, haja erro ou não
       clearInterval(interval)
+      pararProgresso() 
       setIsProcessing(false)
     }
   }
