@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
-import { ArrowLeft, Plus, Search, Package, Edit2, Trash2, Check, X, StickyNote} from "lucide-react"
+import { ArrowLeft, Plus, Search, Package, Edit2, Trash2, Check, X, StickyNote, AlertTriangle} from "lucide-react"
 import { ModalNovoPedido } from './ModalNovoPedido'
 import { ModalEditarPedido } from './ModalEditarPedido'
 import { ModalConfirmarApagarPedido } from './ModalConfirmarApagarPedido'
 import { ModalReverterEstado } from './ModalReverterEstado'
 import { ModalConfirmarEliminarDefinitivo } from './ModalConfirmarEliminarDefinitivo'
+import { problemasPedido } from "../utils/validacaoPedido"
 
 interface PedidosTorneioProps {
     torneio: any
@@ -23,6 +24,8 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
     const [tabAtiva, setTabAtiva] = useState<'ativos' | 'apagados'>('ativos')
 
     const [pesquisa, setPesquisa] = useState('')
+
+    const pedidosComProblemas = pedidos.filter((p) => problemasPedido(p).length > 0).length
 
     useEffect(() => {
         carregarPedidos()
@@ -107,6 +110,15 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                         <span>{torneio.data_evento}</span>
                         <span>•</span>
                         <span>{pedidos.length} pedidos registados</span>
+                        {pedidosComProblemas > 0 && (
+                        <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                {pedidosComProblemas} com dados em falta
+                            </span>
+                        </>
+                    )}
                     </p>
                 </div>
                 
@@ -179,78 +191,108 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                                             String(pedido.numero_fpp || '').includes(pesquisa) ||
                                             (pedido.clube || '').toLowerCase().includes(pesquisa.toLowerCase())
                                         )
-                                        .map((pedido) => (
-                                        <tr key={pedido.id} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1D]/50 transition-colors">
-                                            <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
-                                            <td className="px-4 py-4 text-gray-800 dark:text-gray-200">{pedido.nome}</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.clube}</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.escalao}</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400 text-xs">
-                                                <div>{pedido.telemovel}</div>
-                                                <div className="text-gray-400">{pedido.email}</div>
-                                            </td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">
-                                                {pedido.tipo_pedido}
-                                                {pedido.podio === 1 && 
-                                                    <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-[10px] font-bold rounded">
-                                                        PÓDIO
-                                                    </span>
-                                                }
-                                                {pedido.observacoes && (
-                                                    <div className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400 max-w-xs" title={pedido.observacoes}>
-                                                        <StickyNote className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                                        <span className="line-clamp-2 whitespace-pre-line">{pedido.observacoes}</span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 font-medium text-emerald-600">{pedido.valor_final}€</td>
-                                            <td className="px-4 py-4">
-                                                <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                                                    pedido.estado === 'concluido' 
-                                                    ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500' 
-                                                    : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-500'
-                                                }`}>
-                                                    {pedido.estado === 'concluido' ? 'Concluído' : 'Pendente'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    {/* Botão Ready */}
-                                                    <button 
-                                                        onClick={() => alternarEstadoPedido(pedido)}
-                                                        title={pedido.estado === 'concluido' ? 'Marcar como Pendente' : 'Marcar como Concluído'}
-                                                        className={`p-1.5 rounded-lg transition-colors ${
+                                        .map((pedido) => {
+                                            // Calcula o que falta ANTES de desenhar a linha
+                                            const problemas = problemasPedido(pedido)
+
+                                            return (
+                                                <tr
+                                                    key={pedido.id}
+                                                    className={`transition-colors ${
+                                                        problemas.length > 0
+                                                            ? 'bg-red-50 hover:bg-red-100 dark:bg-red-500/5 dark:hover:bg-red-500/10 shadow-[inset_3px_0_0_0_#ef4444]'
+                                                            : 'hover:bg-gray-50 dark:hover:bg-[#1A1A1D]/50'
+                                                    }`}
+                                                >
+                                                    <td className="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{pedido.numero_fpp}</td>
+
+                                                    {/* Nome + etiquetas do que falta */}
+                                                    <td className="px-4 py-4 text-gray-800 dark:text-gray-200">
+                                                        {pedido.nome}
+                                                        {problemas.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {problemas.map((p) => (
+                                                                    <span key={p.campo} className="px-1.5 py-0.5 bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400 text-[10px] font-bold rounded">
+                                                                        {p.mensagem}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.clube}</td>
+                                                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{pedido.escalao}</td>
+                                                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400 text-xs">
+                                                        <div>{pedido.telemovel}</div>
+                                                        <div className="text-gray-400">{pedido.email}</div>
+                                                    </td>
+
+                                                    {/* Produtos + pódio + observações */}
+                                                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400">
+                                                        {pedido.tipo_pedido}
+                                                        {pedido.podio === 1 && 
+                                                            <span className="ml-2 px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-[10px] font-bold rounded">
+                                                                PÓDIO
+                                                            </span>
+                                                        }
+                                                        {pedido.observacoes && (
+                                                            <div className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400 max-w-xs" title={pedido.observacoes}>
+                                                                <StickyNote className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                                                <span className="line-clamp-2 whitespace-pre-line">{pedido.observacoes}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="px-4 py-4 font-medium text-emerald-600">{pedido.valor_final}€</td>
+                                                    <td className="px-4 py-4">
+                                                        <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                                                             pedido.estado === 'concluido' 
-                                                            ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' 
-                                                            : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
-                                                        }`}
-                                                    >
-                                                        {pedido.estado === 'concluido' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                                                    </button>
+                                                            ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-500' 
+                                                            : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-500'
+                                                        }`}>
+                                                            {pedido.estado === 'concluido' ? 'Concluído' : 'Pendente'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            {/* Botão Ready */}
+                                                            <button 
+                                                                onClick={() => alternarEstadoPedido(pedido)}
+                                                                title={pedido.estado === 'concluido' ? 'Marcar como Pendente' : 'Marcar como Concluído'}
+                                                                className={`p-1.5 rounded-lg transition-colors ${
+                                                                    pedido.estado === 'concluido' 
+                                                                    ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' 
+                                                                    : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                                                                }`}
+                                                            >
+                                                                {pedido.estado === 'concluido' ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                                                            </button>
 
-                                                    {/* Botão Editar */}
-                                                    <button 
-                                                        onClick={() =>  setPedidoParaEditar(pedido) }
-                                                        title="Editar Pedido"
-                                                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
+                                                            {/* Botão Editar */}
+                                                            <button 
+                                                                onClick={() => setPedidoParaEditar(pedido)}
+                                                                title="Editar Pedido"
+                                                                className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
 
-                                                    {/* Botão Apagar */}
-                                                    <button 
-                                                        onClick={() => setPedidoParaApagar(pedido)}
-                                                        title="Apagar Pedido"
-                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                            {/* Botão Apagar */}
+                                                            <button 
+                                                                onClick={() => setPedidoParaApagar(pedido)}
+                                                                title="Apagar Pedido"
+                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })
                                 )
                             )}
+                
                             {tabAtiva === 'apagados' && (
                                 pedidosApagados.length === 0 ? (
                                     <tr>
