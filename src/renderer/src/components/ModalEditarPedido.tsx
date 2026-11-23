@@ -18,6 +18,7 @@ export function ModalEditarPedido({ isOpen, onClose, onSuccess, pedido }: ModalE
     const [telemovel, setTelemovel] = useState('')
     const [caminhoPasta, setCaminhoPasta] = useState('')
     const [temPodio, setTemPodio] = useState(false)
+    const [observacoes, setObservacoes] = useState('')
 
     const [tabelaPrecos, setTabelaPrecos] = useState<any[]>([])
     const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([])
@@ -37,6 +38,7 @@ export function ModalEditarPedido({ isOpen, onClose, onSuccess, pedido }: ModalE
             setEmail(pedido.email || '')
             setTelemovel(pedido.telemovel || '')
             setCaminhoPasta(pedido.caminho_pasta_atleta || '')
+            setObservacoes(pedido.observacoes || '')
             setTemPodio(pedido.podio === 1)
             setValorManual(String(pedido.valor_final))
 
@@ -90,7 +92,8 @@ export function ModalEditarPedido({ isOpen, onClose, onSuccess, pedido }: ModalE
             tipo_pedido: produtosSelecionados.join(' + '),
             podio: temPodio,
             valor_final: valorFinal,
-            caminho_pasta_atleta: caminhoPasta
+            caminho_pasta_atleta: caminhoPasta,
+            observacoes
         }
 
         const resultado = await (window as any).api.updatePedido(dados)
@@ -164,6 +167,16 @@ export function ModalEditarPedido({ isOpen, onClose, onSuccess, pedido }: ModalE
                                 value={caminhoPasta} 
                                 onChange={e => setCaminhoPasta(e.target.value)} 
                                 className="w-full bg-white dark:bg-[#151518] border border-dashed border-gray-300 dark:border-[#444] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white font-mono" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
+                            <textarea
+                                value={observacoes}
+                                onChange={e => setObservacoes(e.target.value)}
+                                rows={3}
+                                placeholder="Ex: foto nº 1234 para estatueta, 2 impressões 15x20..."
+                                className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white resize-y"
                             />
                         </div>
                     </div>

@@ -19,6 +19,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
     const [telemovel, setTelemovel] = useState('')
     const [caminhoPasta, setCaminhoPasta] = useState('')
     const [temPodio, setTemPodio] = useState(false)
+    const [observacoes, setObservacoes] = useState('')
 
     // Gestão de Preços e Produtos
     const [tabelaPrecos, setTabelaPrecos] = useState<any[]>([])
@@ -43,6 +44,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
             setNome(''); setNumeroFpp(''); setClube(''); setAssociacao('');
             setEscalao(''); setEmail(''); setTelemovel(''); setTemPodio(false);
             setProdutosSelecionados([]); setValorManual(''); setCaminhoPasta('');
+            setObservacoes('');
         }
     }, [isOpen])
 
@@ -186,7 +188,8 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
             tipo_pedido: produtosSelecionados.join(' + '),
             podio: temPodio,
             valor_final: valorFinal,
-            caminho_pasta_atleta: caminhoPasta
+            caminho_pasta_atleta: caminhoPasta,
+            observacoes
         }
 
         const resultado = await (window as any).api.addPedido(dados)
@@ -205,7 +208,7 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
 
     const tentarFecharModal = () => {
         // Verifica se há pelo menos um campo escrito ou um produto selecionado
-        const temDadosInseridos = nome !== '' || numeroFpp !== '' || produtosSelecionados.length > 0 || valorManual !== ''
+        const temDadosInseridos = nome !== '' || numeroFpp !== '' || produtosSelecionados.length > 0 || valorManual !== ''  || observacoes !== ''
 
         if (temDadosInseridos) {
             setShowConfirmExit(true)
@@ -306,6 +309,16 @@ export function ModalNovoPedido({ isOpen, onClose, onSuccess, torneioId }: Modal
                                 onChange={e => setCaminhoPasta(e.target.value)} 
                                 placeholder="\01 Iniciacao\05 Rafa"
                                 className="w-full bg-white dark:bg-[#151518] border border-dashed border-gray-300 dark:border-[#444] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white font-mono" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
+                            <textarea
+                                value={observacoes}
+                                onChange={e => setObservacoes(e.target.value)}
+                                rows={3}
+                                placeholder="Ex: foto nº 1234 para estatueta, 2 impressões 15x20..."
+                                className="w-full bg-gray-50 dark:bg-[#1A1A1D] border border-gray-200 dark:border-[#333] text-sm rounded-lg p-2.5 outline-none focus:border-blue-500 text-gray-800 dark:text-white resize-y"
                             />
                         </div>
                     </div>

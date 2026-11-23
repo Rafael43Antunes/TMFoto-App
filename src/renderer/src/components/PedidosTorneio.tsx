@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { ArrowLeft, Plus, Search, Package, Edit2, Trash2, Check, X} from "lucide-react"
+import { ArrowLeft, Plus, Search, Package, Edit2, Trash2, Check, X, StickyNote} from "lucide-react"
 import { ModalNovoPedido } from './ModalNovoPedido'
 import { ModalEditarPedido } from './ModalEditarPedido'
 import { ModalConfirmarApagarPedido } from './ModalConfirmarApagarPedido'
@@ -196,6 +196,12 @@ export function PedidosTorneio({ torneio, onBack }: PedidosTorneioProps) {
                                                         PÓDIO
                                                     </span>
                                                 }
+                                                {pedido.observacoes && (
+                                                    <div className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400 max-w-xs" title={pedido.observacoes}>
+                                                        <StickyNote className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                                        <span className="line-clamp-2 whitespace-pre-line">{pedido.observacoes}</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4 font-medium text-emerald-600">{pedido.valor_final}€</td>
                                             <td className="px-4 py-4">

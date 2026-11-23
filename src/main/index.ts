@@ -6,7 +6,10 @@ import { iniciarBaseDados, getCaminhoBD } from './database'
 import fs from 'fs'
 import path from 'path'
 
-import { extrairOrdemSaidaIA } from './services/extracaoIA'
+import { extrairOrdemSaidaIA } from './services/ia/extracaoIA'
+import { criarRouter } from './services/ia/routerIA'
+import { criarGroq, criarOllama } from './services/ia/fornecedores'
+
 import { iniciarTratorUploads, iniciarCamiaoDoLixo } from './services/automacao'
 import { iniciarWhatsApp, getStatusWhatsApp } from './services/whatsapp'
 
@@ -276,18 +279,34 @@ app.whenReady().then(() => {
     return filePaths[0]
   })
 
-  ipcMain.handle('processar-pdf', async (event, caminhoPdf) => {
-    try {
+ ipcMain.handle('processar-pdf', async (event, caminhoPdf) => {
     const progresso = (msg: string) => {
       if (!event.sender.isDestroyed()) event.sender.send('pdf-progresso', msg)
     }
-    const { escaloes, avisos } = await extrairOrdemSaidaIA(caminhoPdf, progresso)
-    return { sucesso: true, dados: escaloes, avisos }
-  } catch (err: any) {
-    console.error('[PDF] Erro na extração com IA:', err)
-    return { sucesso: false, erro: err?.message || String(err) }
-  }
-})
+
+    try {
+      const chave = import.meta.env.MAIN_VITE_GROQ_API_KEY
+
+      const pedir = criarRouter(
+        [
+          //(plano A): Groq na cloud. 2 modelos = o dobro do limite por minuto
+          [criarGroq(chave, 'openai/gpt-oss-120b'), criarGroq(chave, 'openai/gpt-oss-20b')],
+          // (plano B): Ollama local. Só entra se o Groq estiver indisponível
+          [criarOllama('qwen3:8b')]
+        ],
+        (msg) => {
+          console.log(msg) 
+          if (msg.includes('a aguardar')) progresso('Limite por minuto da IA atingido, a aguardar...')
+        }
+      )
+
+      const { escaloes, avisos } = await extrairOrdemSaidaIA(caminhoPdf, pedir, progresso)
+      return { sucesso: true, dados: escaloes, avisos }
+    } catch (err: any) {
+      console.error('[PDF] Erro na extração:', err)
+      return { sucesso: false, erro: err?.message || String(err) }
+    }
+  })
 
   ipcMain.handle('gerar-pastas-disco', async (event, escaloes) => {
     try {
@@ -548,7 +567,7 @@ app.whenReady().then(() => {
       const { 
       torneio_id, numero_fpp, nome, clube, associacao, 
       email, telemovel, escalao, tipo_pedido, podio, valor_final,
-      caminho_pasta_atleta 
+      caminho_pasta_atleta, observacoes 
     } = dados
       
       const data_criacao = new Date().toISOString()
@@ -558,14 +577,15 @@ app.whenReady().then(() => {
         INSERT INTO pedidos (
           torneio_id, numero_fpp, nome, clube, associacao, 
           email, telemovel, escalao, tipo_pedido, podio, valor_final, data_criacao,
-          caminho_pasta_atleta
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          caminho_pasta_atleta, observacoes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
       
       // O ternário (podio ? 1 : 0) converte o boolean do React para número do SQLite
       const valores = [
         torneio_id, numero_fpp, nome, clube, associacao, 
-        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, data_criacao, caminho_pasta_atleta || null
+        email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final, data_criacao, caminho_pasta_atleta || null,
+        observacoes?.trim() || null
       ]
 
       db.run(query, valores, function(err) {
@@ -652,20 +672,20 @@ app.whenReady().then(() => {
       const { 
         id, numero_fpp, nome, clube, associacao, 
         email, telemovel, escalao, tipo_pedido, podio, valor_final,
-        caminho_pasta_atleta 
+        caminho_pasta_atleta, observacoes
       } = dados
       
       const query = `
         UPDATE pedidos SET
           numero_fpp = ?, nome = ?, clube = ?, associacao = ?, 
           email = ?, telemovel = ?, escalao = ?, tipo_pedido = ?, 
-          podio = ?, valor_final = ?, caminho_pasta_atleta = ?
+          podio = ?, valor_final = ?, caminho_pasta_atleta = ?, observacoes = ?
         WHERE id = ?
       `
       const valores = [
         numero_fpp, nome, clube, associacao, 
         email, telemovel, escalao, tipo_pedido, podio ? 1 : 0, valor_final,
-        caminho_pasta_atleta, id
+        caminho_pasta_atleta, observacoes?.trim() || null, id
       ]
 
       db.run(query, valores, function(err) {
